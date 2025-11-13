@@ -129,9 +129,9 @@ export default function ProfilePage() {
     () => [
       { href: "/", label: "الرئيسية" },
       { href: "/search", label: "ابحث عن شريك" },
-      { href: "/compatibility", label: "اختبار التوافق" },
-      { href: "/services", label: "خدماتنا" },
-      { href: "/contact", label: "تواصل معنا" },
+      { href: "/matches", label: "طلبات التوافق" },
+      { href: "/consultations", label: "جلسات الرؤية" },
+      { href: "/favorites", label: "قائمة المفضلة" },
     ],
     [],
   );
@@ -188,6 +188,24 @@ export default function ProfilePage() {
   async function handlePhotoSelected(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file || !auth) {
+      return;
+    }
+
+    if (!/image\/(jpe?g|png|gif|webp)/i.test(file.type)) {
+      setPhotoStatus({
+        type: "error",
+        message: "يجب أن تكون الصورة بصيغة JPG أو PNG أو GIF أو WebP.",
+      });
+      event.target.value = "";
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setPhotoStatus({
+        type: "error",
+        message: "حجم الصورة يجب ألا يتجاوز 5 ميجابايت.",
+      });
+      event.target.value = "";
       return;
     }
 
