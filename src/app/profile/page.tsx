@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { fetchWithToken } from "@/lib/api";
+import { fetchWithToken, uploadProfilePhoto } from "@/lib/api";
 import {
   clearStoredAuth,
   getStoredAuth,
@@ -26,6 +26,8 @@ type ProfileResponse = {
   guardianName?: string;
   guardianContact?: string;
   photoUrl?: string;
+  photoStorage?: "cloudinary" | "local";
+  photoPublicId?: string | null;
   isVerified?: boolean;
 };
 
@@ -62,6 +64,8 @@ export default function ProfilePage() {
   const [success, setSuccess] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement | null>(null);
   const photoInputRef = useRef<HTMLInputElement | null>(null);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [photoStatus, setPhotoStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const settingsRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -147,7 +151,7 @@ export default function ProfilePage() {
       description: "أضف صورة واضحة لملفك لزيادة فرص التوافق.",
       onClick: () => {
         scrollToRef(formRef as React.RefObject<HTMLElement>);
-        setTimeout(() => photoInputRef.current?.focus(), 350);
+        setTimeout(() => photoInputRef.current?.click(), 350);
       },
     },
     {
@@ -168,6 +172,50 @@ export default function ProfilePage() {
   const renderedFields = isFemale
     ? [...baseFields, ...femaleGuardianFields]
     : baseFields;
+
+  const resolvedPhotoUrl = useMemo(() => {
+    if (!profile.photoUrl) return null;
+    if (/^https?:\/\//i.test(profile.photoUrl)) {
+      return profile.photoUrl;
+    }
+    const base = (process.env.NEXT_PUBLIC_API ?? "").replace(/\/$/, "");
+    const path = profile.photoUrl.startsWith("/")
+      ? profile.photoUrl
+      : `/${profile.photoUrl}`;
+    return `${base}${path}`;
+  }, [profile.photoUrl]);
+
+  async function handlePhotoSelected(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file || !auth) {
+      return;
+    }
+
+    setPhotoStatus(null);
+    setPhotoUploading(true);
+
+    try {
+      const updated = await uploadProfilePhoto<ProfileResponse>(
+        auth.token,
+        auth.user.id,
+        file,
+      );
+      setProfile((prev) => ({ ...prev, ...(updated ?? {}) }));
+      setPhotoStatus({
+        type: "success",
+        message: "تم تحديث صورتك الشخصية بنجاح.",
+      });
+    } catch (err) {
+      setPhotoStatus({
+        type: "error",
+        message:
+          err instanceof Error ? err.message : "تعذر رفع الصورة، حاول مجدداً.",
+      });
+    } finally {
+      setPhotoUploading(false);
+      event.target.value = "";
+    }
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 pb-16">
@@ -277,6 +325,56 @@ export default function ProfilePage() {
             </div>
           ) : (
             <form ref={formRef} onSubmit={handleSubmit} className="mt-8 space-y-8">
+              <section className="flex flex-col gap-6 md:flex-row md:items-center">
+                <div className="relative h-32 w-32 overflow-hidden rounded-3xl border border-slate-200 bg-slate-100">
+                  {resolvedPhotoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={resolvedPhotoUrl}
+                      alt="الصورة الشخصية"
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center bg-slate-200 text-sm text-slate-500">
+                      لا توجد صورة
+                    </div>
+                  )}
+                </div>
+                <div className="flex flex-1 flex-col gap-3">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => photoInputRef.current?.click()}
+                      disabled={photoUploading}
+                      className="rounded-full bg-secondary-600 px-5 py-2 text-sm font-medium text-white transition hover:bg-secondary-500 disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      {photoUploading ? "جاري الرفع..." : "اختيار صورة جديدة"}
+                    </button>
+                    <span className="text-xs text-slate-500">
+                      الصيغ المدعومة: ‎JPG، PNG، WebP حتى 5 ميجابايت.
+                    </span>
+                  </div>
+                  {photoStatus ? (
+                    <p
+                      className={`text-xs ${
+                        photoStatus.type === "success"
+                          ? "text-emerald-600"
+                          : "text-rose-600"
+                      }`}
+                    >
+                      {photoStatus.message}
+                    </p>
+                  ) : null}
+                  <input
+                    ref={photoInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/gif"
+                    className="hidden"
+                    onChange={handlePhotoSelected}
+                  />
+                </div>
+              </section>
+
               <div className="grid gap-6 md:grid-cols-2">
                 {renderedFields.map((field) => (
                   <label
@@ -285,7 +383,6 @@ export default function ProfilePage() {
                   >
                     {field.label}
                     <input
-                      ref={field.name === "photoUrl" ? photoInputRef : undefined}
                       type={field.type ?? "text"}
                       value={
                         profile[field.name]

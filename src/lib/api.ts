@@ -82,6 +82,25 @@ export function getFavorites(token: string) {
   return fetchWithToken("/favorites", token);
 }
 
+export async function uploadProfilePhoto<T = unknown>(
+  token: string,
+  userId: string,
+  file: File,
+): Promise<T> {
+  const formData = new FormData();
+  formData.append("photo", file);
+
+  const response = await fetch(`${API_BASE}/profiles/${userId}/photo`, {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: formData,
+  });
+
+  return handleResponse<T>(response);
+}
+
 export function addFavorite(token: string, targetUserId: string) {
   return fetchWithToken(
     "/favorites",
