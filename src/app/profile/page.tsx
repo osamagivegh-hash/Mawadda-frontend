@@ -161,18 +161,6 @@ export default function ProfilePage() {
     },
   ];
 
-  if (!auth) return null;
-
-  const displayName =
-    profile.firstName || profile.lastName
-      ? `${profile.firstName ?? ""} ${profile.lastName ?? ""}`.trim()
-      : auth.user.email ?? "عضو مَوَدّة";
-
-  const isFemale = profile.gender === "female";
-  const renderedFields = isFemale
-    ? [...baseFields, ...femaleGuardianFields]
-    : baseFields;
-
   const resolvedPhotoUrl = useMemo(() => {
     if (!profile.photoUrl) return null;
     if (/^https?:\/\//i.test(profile.photoUrl)) {
@@ -184,6 +172,18 @@ export default function ProfilePage() {
       : `/${profile.photoUrl}`;
     return `${base}${path}`;
   }, [profile.photoUrl]);
+
+  if (!auth) return null;
+
+  const displayName =
+    profile.firstName || profile.lastName
+      ? `${profile.firstName ?? ""} ${profile.lastName ?? ""}`.trim()
+      : auth.user.email ?? "عضو مَوَدّة";
+
+  const isFemale = profile.gender === "female";
+  const renderedFields = isFemale
+    ? [...baseFields, ...femaleGuardianFields]
+    : baseFields;
 
   async function handlePhotoSelected(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
