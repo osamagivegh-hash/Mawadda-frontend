@@ -1,0 +1,27 @@
+import { Navbar } from "@/components/Navbar";
+import { HeroSection } from "@/components/HeroSection";
+import { WhyUsSection } from "@/components/WhyUsSection";
+import { ServicesSection } from "@/components/ServicesSection";
+import { JourneySection } from "@/components/JourneySection";
+import { ConsultantsSection } from "@/components/ConsultantsSection";
+import { CallToActionSection } from "@/components/CallToActionSection";
+import { ContactSection } from "@/components/ContactSection";
+import { Footer } from "@/components/Footer";
+
+export default function Home() {
+  return (
+    <div className="flex min-h-screen flex-col bg-slate-50">
+      <Navbar />
+      <main className="flex-1">
+        <HeroSection />
+        <WhyUsSection />
+        <ServicesSection />
+        <JourneySection />
+        <ConsultantsSection />
+        <CallToActionSection />
+        <ContactSection />
+      </main>
+      <Footer />
+    </div>
+  );
+}
