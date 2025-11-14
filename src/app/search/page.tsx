@@ -8,14 +8,9 @@ import { useRouter } from "next/navigation";
 
 type SearchFilters = {
   gender?: string;
-  nationality?: string;
   minAge?: string;
   maxAge?: string;
-  education?: string;
-  maritalStatus?: string;
   city?: string;
-  marriageType?: string;
-  hasPhoto?: string;
   keyword?: string;
   memberId?: string;
 };
@@ -50,14 +45,9 @@ type FavoriteEntry = {
 
 const initialFilters: SearchFilters = {
   gender: "",
-  nationality: "",
   minAge: "",
   maxAge: "",
-  education: "",
-  maritalStatus: "",
   city: "",
-  marriageType: "",
-  hasPhoto: "",
   keyword: "",
   memberId: "",
 };
@@ -190,14 +180,35 @@ export default function SearchPage() {
 
         <form
           onSubmit={handleSubmit}
-          className="grid gap-4 rounded-3xl border border-slate-100 bg-white p-6 shadow-soft md:grid-cols-2 lg:grid-cols-4"
+          className="grid gap-4 rounded-3xl border border-accent-100 bg-white p-6 shadow-lg md:grid-cols-2 lg:grid-cols-3"
         >
+          {/* البحث الأساسي */}
+          <label className="flex flex-col gap-2 text-sm text-slate-600 lg:col-span-3">
+            <span className="font-medium text-secondary-700">🔍 البحث السريع</span>
+            <input
+              value={filters.keyword || filters.memberId || ""}
+              onChange={(event) => {
+                const value = event.target.value;
+                if (value.startsWith("MAW-") || /^\d+$/.test(value)) {
+                  updateFilter("memberId", value);
+                  updateFilter("keyword", "");
+                } else {
+                  updateFilter("keyword", value);
+                  updateFilter("memberId", "");
+                }
+              }}
+              className="rounded-xl border border-accent-200 bg-slate-50 px-4 py-3 text-slate-900 focus:border-accent-400 focus:outline-none focus:ring-2 focus:ring-accent-100"
+              placeholder="ابحث بالاسم، رقم العضوية (MAW-000123)، أو أي كلمة..."
+            />
+          </label>
+
+          {/* الفلاتر الأساسية */}
           <label className="flex flex-col gap-2 text-sm text-slate-600">
             الجنس
             <select
               value={filters.gender}
               onChange={(event) => updateFilter("gender", event.target.value)}
-              className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-100"
+              className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 focus:border-accent-400 focus:outline-none focus:ring-2 focus:ring-accent-100"
             >
               <option value="">الكل</option>
               <option value="female">أنثى</option>
@@ -206,99 +217,41 @@ export default function SearchPage() {
           </label>
 
           <label className="flex flex-col gap-2 text-sm text-slate-600">
-            الجنسية
-            <input
-              value={filters.nationality}
-              onChange={(event) => updateFilter("nationality", event.target.value)}
-              className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-100"
-              placeholder="مثال: السعودية"
-            />
-          </label>
-
-          <label className="flex flex-col gap-2 text-sm text-slate-600">
-            الحد الأدنى للعمر
-            <input
-              type="number"
-              min={18}
-              max={80}
-              value={filters.minAge}
-              onChange={(event) => updateFilter("minAge", event.target.value)}
-              className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-100"
-            />
-          </label>
-
-          <label className="flex flex-col gap-2 text-sm text-slate-600">
-            الحد الأعلى للعمر
-            <input
-              type="number"
-              min={18}
-              max={80}
-              value={filters.maxAge}
-              onChange={(event) => updateFilter("maxAge", event.target.value)}
-              className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-100"
-            />
-          </label>
-
-          <label className="flex flex-col gap-2 text-sm text-slate-600">
-            المستوى التعليمي
-            <input
-              value={filters.education}
-              onChange={(event) => updateFilter("education", event.target.value)}
-              className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-100"
-            />
-          </label>
-
-          <label className="flex flex-col gap-2 text-sm text-slate-600">
-            الحالة الاجتماعية
-            <input
-              value={filters.maritalStatus}
-              onChange={(event) => updateFilter("maritalStatus", event.target.value)}
-              className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-100"
-            />
-          </label>
-
-          <label className="flex flex-col gap-2 text-sm text-slate-600">
             المدينة
             <input
               value={filters.city}
               onChange={(event) => updateFilter("city", event.target.value)}
-              className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-100"
-            />
-          </label>
-
-          <label className="flex flex-col gap-2 text-sm text-slate-600">
-            البحث بالكلمات
-            <input
-              value={filters.keyword}
-              onChange={(event) => updateFilter("keyword", event.target.value)}
-              className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-100"
-              placeholder="اسم، لقب، بريد..."
-            />
-          </label>
-
-          <label className="flex flex-col gap-2 text-sm text-slate-600">
-            رقم العضوية
-            <input
-              value={filters.memberId}
-              onChange={(event) => updateFilter("memberId", event.target.value)}
               className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 focus:border-accent-400 focus:outline-none focus:ring-2 focus:ring-accent-100"
-              placeholder="مثال: MAW-000123"
+              placeholder="مثال: الرياض"
             />
           </label>
 
           <label className="flex flex-col gap-2 text-sm text-slate-600">
-            يوجد صورة
-            <select
-              value={filters.hasPhoto}
-              onChange={(event) => updateFilter("hasPhoto", event.target.value)}
-              className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-100"
-            >
-              <option value="">الكل</option>
-              <option value="true">نعم</option>
-            </select>
+            العمر
+            <div className="flex gap-2">
+              <input
+                type="number"
+                min={18}
+                max={80}
+                value={filters.minAge}
+                onChange={(event) => updateFilter("minAge", event.target.value)}
+                className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-slate-900 focus:border-accent-400 focus:outline-none focus:ring-2 focus:ring-accent-100"
+                placeholder="من"
+              />
+              <span className="self-center text-slate-400">-</span>
+              <input
+                type="number"
+                min={18}
+                max={80}
+                value={filters.maxAge}
+                onChange={(event) => updateFilter("maxAge", event.target.value)}
+                className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-slate-900 focus:border-accent-400 focus:outline-none focus:ring-2 focus:ring-accent-100"
+                placeholder="إلى"
+              />
+            </div>
           </label>
 
-          <div className="md:col-span-2 lg:col-span-4 flex justify-end gap-3">
+          <div className="md:col-span-2 lg:col-span-3 flex justify-end gap-3">
             <button
               type="submit"
               disabled={loading}
