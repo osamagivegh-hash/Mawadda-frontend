@@ -10,7 +10,15 @@ type SearchFilters = {
   gender?: string;
   minAge?: string;
   maxAge?: string;
-  city?: string;
+  countryOfResidence?: string;
+  nationality?: string;
+  education?: string;
+  maritalStatus?: string;
+  religion?: string;
+  marriageType?: string;
+  polygamyAcceptance?: string;
+  compatibilityTest?: string;
+  hasPhoto?: string;
   keyword?: string;
   memberId?: string;
 };
@@ -47,7 +55,15 @@ const initialFilters: SearchFilters = {
   gender: "",
   minAge: "",
   maxAge: "",
-  city: "",
+  countryOfResidence: "",
+  nationality: "",
+  education: "",
+  maritalStatus: "",
+  religion: "",
+  marriageType: "",
+  polygamyAcceptance: "",
+  compatibilityTest: "",
+  hasPhoto: "",
   keyword: "",
   memberId: "",
 };
@@ -180,85 +196,252 @@ export default function SearchPage() {
 
         <form
           onSubmit={handleSubmit}
-          className="grid gap-4 rounded-3xl border border-accent-100 bg-white p-6 shadow-lg md:grid-cols-2 lg:grid-cols-3"
+          className="rounded-3xl border border-accent-100 bg-white p-6 shadow-lg"
         >
-          {/* البحث الأساسي */}
-          <label className="flex flex-col gap-2 text-sm text-slate-600 lg:col-span-3">
-            <span className="font-medium text-secondary-700">🔍 البحث السريع</span>
-            <input
-              value={filters.keyword || filters.memberId || ""}
-              onChange={(event) => {
-                const value = event.target.value;
-                if (value.startsWith("MAW-") || /^\d+$/.test(value)) {
-                  updateFilter("memberId", value);
-                  updateFilter("keyword", "");
-                } else {
-                  updateFilter("keyword", value);
-                  updateFilter("memberId", "");
-                }
-              }}
-              className="rounded-xl border border-accent-200 bg-slate-50 px-4 py-3 text-slate-900 focus:border-accent-400 focus:outline-none focus:ring-2 focus:ring-accent-100"
-              placeholder="ابحث بالاسم، رقم العضوية (MAW-000123)، أو أي كلمة..."
-            />
-          </label>
+          <div className="grid gap-4 md:grid-cols-2">
+            {/* العمود الأيسر */}
+            <div className="space-y-4">
+              {/* العمر */}
+              <div className="grid grid-cols-2 gap-3">
+                <label className="flex flex-col gap-2 text-sm text-slate-600">
+                  العمر من
+                  <input
+                    type="number"
+                    min={18}
+                    max={80}
+                    value={filters.minAge}
+                    onChange={(event) => updateFilter("minAge", event.target.value)}
+                    className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-slate-900 focus:border-accent-400 focus:outline-none focus:ring-2 focus:ring-accent-100"
+                    placeholder="28"
+                  />
+                </label>
+                <label className="flex flex-col gap-2 text-sm text-slate-600">
+                  العمر الى
+                  <input
+                    type="number"
+                    min={18}
+                    max={80}
+                    value={filters.maxAge}
+                    onChange={(event) => updateFilter("maxAge", event.target.value)}
+                    className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-slate-900 focus:border-accent-400 focus:outline-none focus:ring-2 focus:ring-accent-100"
+                    placeholder="42"
+                  />
+                </label>
+              </div>
 
-          {/* الفلاتر الأساسية */}
-          <label className="flex flex-col gap-2 text-sm text-slate-600">
-            الجنس
-            <select
-              value={filters.gender}
-              onChange={(event) => updateFilter("gender", event.target.value)}
-              className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 focus:border-accent-400 focus:outline-none focus:ring-2 focus:ring-accent-100"
-            >
-              <option value="">الكل</option>
-              <option value="female">أنثى</option>
-              <option value="male">ذكر</option>
-            </select>
-          </label>
+              {/* بلد الإقامة */}
+              <label className="flex flex-col gap-2 text-sm text-slate-600">
+                بلد الإقامة
+                <select
+                  value={filters.countryOfResidence}
+                  onChange={(event) => updateFilter("countryOfResidence", event.target.value)}
+                  className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-slate-900 focus:border-accent-400 focus:outline-none focus:ring-2 focus:ring-accent-100"
+                >
+                  <option value="">كل الخيارات</option>
+                  <option value="السعودية">السعودية</option>
+                  <option value="الإمارات">الإمارات</option>
+                  <option value="الكويت">الكويت</option>
+                  <option value="قطر">قطر</option>
+                  <option value="البحرين">البحرين</option>
+                  <option value="عمان">عمان</option>
+                  <option value="الأردن">الأردن</option>
+                  <option value="لبنان">لبنان</option>
+                  <option value="سوريا">سوريا</option>
+                  <option value="مصر">مصر</option>
+                  <option value="فلسطين المحتلة">فلسطين المحتلة</option>
+                  <option value="العراق">العراق</option>
+                  <option value="اليمن">اليمن</option>
+                  <option value="السودان">السودان</option>
+                  <option value="المغرب">المغرب</option>
+                  <option value="تونس">تونس</option>
+                  <option value="الجزائر">الجزائر</option>
+                  <option value="ليبيا">ليبيا</option>
+                  <option value="أخرى">أخرى</option>
+                </select>
+              </label>
 
-          <label className="flex flex-col gap-2 text-sm text-slate-600">
-            المدينة
-            <input
-              value={filters.city}
-              onChange={(event) => updateFilter("city", event.target.value)}
-              className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 focus:border-accent-400 focus:outline-none focus:ring-2 focus:ring-accent-100"
-              placeholder="مثال: الرياض"
-            />
-          </label>
+              {/* المستوى التعليمي */}
+              <label className="flex flex-col gap-2 text-sm text-slate-600">
+                المستوى التعليمي
+                <select
+                  value={filters.education}
+                  onChange={(event) => updateFilter("education", event.target.value)}
+                  className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-slate-900 focus:border-accent-400 focus:outline-none focus:ring-2 focus:ring-accent-100"
+                >
+                  <option value="">كل الخيارات</option>
+                  <option value="غير متعلم">غير متعلم</option>
+                  <option value="ابتدائي">ابتدائي</option>
+                  <option value="متوسط">متوسط</option>
+                  <option value="ثانوي">ثانوي</option>
+                  <option value="دبلوم">دبلوم</option>
+                  <option value="بكالوريوس">بكالوريوس</option>
+                  <option value="ماجستير">ماجستير</option>
+                  <option value="دكتوراه">دكتوراه</option>
+                </select>
+              </label>
 
-          <label className="flex flex-col gap-2 text-sm text-slate-600">
-            العمر
-            <div className="flex gap-2">
-              <input
-                type="number"
-                min={18}
-                max={80}
-                value={filters.minAge}
-                onChange={(event) => updateFilter("minAge", event.target.value)}
-                className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-slate-900 focus:border-accent-400 focus:outline-none focus:ring-2 focus:ring-accent-100"
-                placeholder="من"
-              />
-              <span className="self-center text-slate-400">-</span>
-              <input
-                type="number"
-                min={18}
-                max={80}
-                value={filters.maxAge}
-                onChange={(event) => updateFilter("maxAge", event.target.value)}
-                className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-slate-900 focus:border-accent-400 focus:outline-none focus:ring-2 focus:ring-accent-100"
-                placeholder="إلى"
-              />
+              {/* إختبار التوافق */}
+              <label className="flex flex-col gap-2 text-sm text-slate-600">
+                إختبار التوافق
+                <select
+                  value={filters.compatibilityTest}
+                  onChange={(event) => updateFilter("compatibilityTest", event.target.value)}
+                  className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-slate-900 focus:border-accent-400 focus:outline-none focus:ring-2 focus:ring-accent-100"
+                >
+                  <option value="">كل الخيارات</option>
+                  <option value="نعم">نعم</option>
+                  <option value="لا">لا</option>
+                </select>
+              </label>
+
+              {/* تقبل/تقبلين بالتعدد */}
+              <label className="flex flex-col gap-2 text-sm text-slate-600">
+                تقبل/تقبلين بالتعدد
+                <select
+                  value={filters.polygamyAcceptance}
+                  onChange={(event) => updateFilter("polygamyAcceptance", event.target.value)}
+                  className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-slate-900 focus:border-accent-400 focus:outline-none focus:ring-2 focus:ring-accent-100"
+                >
+                  <option value="">كل الخيارات</option>
+                  <option value="اقبل بالتعدد">اقبل بالتعدد</option>
+                  <option value="لا اقبل بالتعدد">لا اقبل بالتعدد</option>
+                </select>
+              </label>
             </div>
-          </label>
 
-          <div className="md:col-span-2 lg:col-span-3 flex justify-end gap-3">
+            {/* العمود الأيمن */}
+            <div className="space-y-4">
+              {/* الجنس */}
+              <label className="flex flex-col gap-2 text-sm text-slate-600">
+                أنا {filters.gender === "male" ? "رجل" : filters.gender === "female" ? "امرأة" : ""} أبحث عن
+                <select
+                  value={filters.gender}
+                  onChange={(event) => updateFilter("gender", event.target.value)}
+                  className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-slate-900 focus:border-accent-400 focus:outline-none focus:ring-2 focus:ring-accent-100"
+                >
+                  <option value="">اختر الجنس</option>
+                  <option value="female">أنثى</option>
+                  <option value="male">ذكر</option>
+                </select>
+              </label>
+
+              {/* الجنسية */}
+              <label className="flex flex-col gap-2 text-sm text-slate-600">
+                الجنسية
+                <select
+                  value={filters.nationality}
+                  onChange={(event) => updateFilter("nationality", event.target.value)}
+                  className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-slate-900 focus:border-accent-400 focus:outline-none focus:ring-2 focus:ring-accent-100"
+                >
+                  <option value="">كل الخيارات</option>
+                  <option value="السعودية">السعودية</option>
+                  <option value="فلسطين المحتلة">فلسطين المحتلة</option>
+                  <option value="الأردن">الأردن</option>
+                  <option value="سوريا">سوريا</option>
+                  <option value="لبنان">لبنان</option>
+                  <option value="مصر">مصر</option>
+                  <option value="العراق">العراق</option>
+                  <option value="اليمن">اليمن</option>
+                  <option value="أخرى">أخرى</option>
+                </select>
+              </label>
+
+              {/* الحالة الاجتماعية */}
+              <label className="flex flex-col gap-2 text-sm text-slate-600">
+                الحالة الاجتماعية
+                <select
+                  value={filters.maritalStatus}
+                  onChange={(event) => updateFilter("maritalStatus", event.target.value)}
+                  className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-slate-900 focus:border-accent-400 focus:outline-none focus:ring-2 focus:ring-accent-100"
+                >
+                  <option value="">كل الخيارات</option>
+                  <option value="أعزب">أعزب</option>
+                  <option value="مطلق - بدون أولاد">مطلق - بدون أولاد</option>
+                  <option value="مطلق - مع أولاد">مطلق - مع أولاد</option>
+                  <option value="منفصل بدون طلاق">منفصل بدون طلاق</option>
+                  <option value="أرمل - بدون أولاد">أرمل - بدون أولاد</option>
+                  <option value="أرمل - مع أولاد">أرمل - مع أولاد</option>
+                </select>
+              </label>
+
+              {/* الديانة */}
+              <label className="flex flex-col gap-2 text-sm text-slate-600">
+                الديانة
+                <select
+                  value={filters.religion}
+                  onChange={(event) => updateFilter("religion", event.target.value)}
+                  className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-slate-900 focus:border-accent-400 focus:outline-none focus:ring-2 focus:ring-accent-100"
+                >
+                  <option value="">كل الخيارات</option>
+                  <option value="الإسلام">الإسلام</option>
+                  <option value="المسيحية">المسيحية</option>
+                  <option value="أخرى">أخرى</option>
+                </select>
+              </label>
+
+              {/* نوع الزواج */}
+              <label className="flex flex-col gap-2 text-sm text-slate-600">
+                نوع الزواج
+                <select
+                  value={filters.marriageType}
+                  onChange={(event) => updateFilter("marriageType", event.target.value)}
+                  className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-slate-900 focus:border-accent-400 focus:outline-none focus:ring-2 focus:ring-accent-100"
+                >
+                  <option value="">كل الخيارات</option>
+                  <option value="زواج تقليدي">زواج تقليدي</option>
+                  <option value="زواج بشروط خاصة">زواج بشروط خاصة</option>
+                </select>
+              </label>
+
+              {/* الأعضاء لديهم صور فقط */}
+              <label className="flex items-center gap-2 text-sm text-slate-600">
+                <input
+                  type="checkbox"
+                  checked={filters.hasPhoto === "true"}
+                  onChange={(event) => updateFilter("hasPhoto", event.target.checked ? "true" : "")}
+                  className="h-4 w-4 rounded border-slate-300 text-accent-600 focus:ring-accent-500"
+                />
+                <span>الأعضاء لديهم صور فقط</span>
+              </label>
+            </div>
+          </div>
+
+          {/* زر البحث */}
+          <div className="mt-6">
             <button
               type="submit"
               disabled={loading}
-              className="rounded-full bg-accent-600 px-6 py-3 text-sm font-medium text-white transition-all hover:bg-accent-700 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-70"
+              className="w-full rounded-lg bg-red-600 px-6 py-3 text-base font-medium text-white transition-all hover:bg-red-700 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-70"
             >
-              {loading ? "جارٍ البحث..." : "🔍 تنفيذ البحث"}
+              {loading ? "جارٍ البحث..." : "بحث في البيانات"}
             </button>
+          </div>
+
+          {/* البحث برقم العضو أو الإسم */}
+          <div className="mt-6 border-t border-slate-200 pt-6">
+            <h3 className="mb-4 text-sm font-medium text-secondary-700">
+              البحث برقم العضو أو الإسم
+            </h3>
+            <div className="grid gap-3 md:grid-cols-2">
+              <label className="flex flex-col gap-2 text-sm text-slate-600">
+                إسم العضو
+                <input
+                  value={filters.keyword}
+                  onChange={(event) => updateFilter("keyword", event.target.value)}
+                  className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-slate-900 focus:border-accent-400 focus:outline-none focus:ring-2 focus:ring-accent-100"
+                  placeholder="أدخل اسم العضو"
+                />
+              </label>
+              <label className="flex flex-col gap-2 text-sm text-slate-600">
+                أو رقم العضو
+                <input
+                  value={filters.memberId}
+                  onChange={(event) => updateFilter("memberId", event.target.value)}
+                  className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-slate-900 focus:border-accent-400 focus:outline-none focus:ring-2 focus:ring-accent-100"
+                  placeholder="مثال: MAW-000123"
+                />
+              </label>
+            </div>
           </div>
         </form>
 
