@@ -106,8 +106,6 @@ export default function ExamsPage() {
 
   if (!token) return null;
 
-  const displayName = storedAuth?.user.email ?? "عضو مَوَدّة";
-
   return (
     <div className="min-h-screen bg-slate-50 pb-16">
       {/* Header */}

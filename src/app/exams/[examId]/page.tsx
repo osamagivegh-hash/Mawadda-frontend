@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import {
   getExamContent,
@@ -99,7 +99,7 @@ export default function ExamPage() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [examStarted, timeLeft, result]);
+  }, [examStarted, timeLeft, result, handleSubmit]);
 
   const formatTime = (seconds: number) => {
     const minutes = Math.floor(seconds / 60);
@@ -114,7 +114,7 @@ export default function ExamPage() {
     }));
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = useCallback(async () => {
     if (!token || !exam) return;
 
     try {
@@ -128,7 +128,7 @@ export default function ExamPage() {
     } finally {
       setSubmitting(false);
     }
-  };
+  }, [token, exam, examId, answers]);
 
   const startExam = () => {
     setExamStarted(true);
