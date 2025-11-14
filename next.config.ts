@@ -6,6 +6,8 @@ const nextConfig: NextConfig = {
   images: {
     unoptimized: true,
   },
+  distDir: "out",
+  skipTrailingSlashRedirect: true,
 };
 
 export default nextConfig;
