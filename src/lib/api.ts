@@ -21,11 +21,11 @@ export async function register(payload: Record<string, unknown>) {
   return handleResponse(response);
 }
 
-export async function login(payload: Record<string, unknown>) {
+export async function login(email: string, password: string) {
   const response = await fetch(`${API_BASE}/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ email, password }),
   });
   return handleResponse(response);
 }

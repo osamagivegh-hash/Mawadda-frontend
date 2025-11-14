@@ -296,6 +296,12 @@ export default function ProfilePage() {
             <h1 className="text-3xl font-bold">
               أهلاً بك، {displayName || "عضونا العزيز"}
             </h1>
+            {auth.user.memberId && (
+              <div className="inline-flex items-center gap-2 rounded-full bg-white/20 px-4 py-2 text-sm font-medium">
+                <span>🆔</span>
+                <span>رقم العضوية: {auth.user.memberId}</span>
+              </div>
+            )}
             <p className="text-sm leading-7 text-white/75">
               يمكنك إدارة ملفك الشخصي، تعديل بياناتك، ورفع صورتك الشخصية
               بسهولة داخل المنصة.

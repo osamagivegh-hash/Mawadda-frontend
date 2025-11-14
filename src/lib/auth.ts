@@ -4,6 +4,7 @@ export type StoredAuth = {
     id: string;
     email?: string;
     role?: string;
+    memberId?: string;
   };
 };
 
