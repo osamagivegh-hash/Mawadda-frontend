@@ -3,31 +3,58 @@ const API_BASE =
   "http://localhost:3000/api";
 
 async function handleResponse<T>(response: Response): Promise<T> {
-  const data = await response.json().catch(() => ({}));
+  let data: any = {};
+  
+  try {
+    const text = await response.text();
+    if (text) {
+      data = JSON.parse(text);
+    }
+  } catch (error) {
+    // إذا فشل تحويل JSON، نستخدم رسالة خطأ عامة
+    data = { message: "حدث خطأ في معالجة الاستجابة" };
+  }
+  
   if (!response.ok) {
     const message =
-      (data && (data.message || data.error)) ?? "حدث خطأ غير متوقع";
+      (data && (data.message || data.error || data.statusMessage)) ?? 
+      `حدث خطأ غير متوقع (${response.status})`;
     throw new Error(Array.isArray(message) ? message.join("، ") : message);
   }
+  
   return data as T;
 }
 
 export async function register(payload: Record<string, unknown>) {
-  const response = await fetch(`${API_BASE}/auth/register`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  return handleResponse(response);
+  try {
+    const response = await fetch(`${API_BASE}/auth/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    return handleResponse(response);
+  } catch (error) {
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error("فشل الاتصال بالخادم. يرجى التحقق من الاتصال بالإنترنت.");
+  }
 }
 
 export async function login(email: string, password: string) {
-  const response = await fetch(`${API_BASE}/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
-  });
-  return handleResponse(response);
+  try {
+    const response = await fetch(`${API_BASE}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+    return handleResponse(response);
+  } catch (error) {
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error("فشل الاتصال بالخادم. يرجى التحقق من الاتصال بالإنترنت.");
+  }
 }
 
 export async function fetchWithToken<T>(

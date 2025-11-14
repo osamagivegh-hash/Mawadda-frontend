@@ -23,12 +23,23 @@ export default function LoginPage() {
     try {
       const response = await login(email, password);
       if (response.token) {
-        localStorage.setItem("auth", JSON.stringify(response));
+        // حفظ البيانات بنفس الطريقة المستخدمة في التسجيل
+        window.localStorage.setItem("mawaddahToken", response.token);
+        if (response.user) {
+          window.localStorage.setItem(
+            "mawaddahUser",
+            JSON.stringify(response.user),
+          );
+        }
         // استخدام window.location بدلاً من router للتوافق مع التصدير الثابت
         window.location.href = "/dashboard/";
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "حدث خطأ غير متوقع");
+      console.error("Login error:", err);
+      const errorMessage = err instanceof Error 
+        ? err.message 
+        : "حدث خطأ غير متوقع. يرجى التحقق من البريد الإلكتروني وكلمة المرور.";
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

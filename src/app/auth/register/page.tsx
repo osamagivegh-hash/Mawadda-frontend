@@ -52,7 +52,11 @@ export default function RegisterPage() {
         }, 3000);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "حدث خطأ غير متوقع");
+      console.error("Registration error:", err);
+      const errorMessage = err instanceof Error 
+        ? err.message 
+        : "حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.";
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
