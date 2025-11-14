@@ -191,7 +191,7 @@ export default function ProfilePage() {
       return;
     }
 
-    if (!/image\/(jpe?g|png|gif|webp)/i.test(file.type)) {
+    if (!/^image\/(jpeg|jpg|png|gif|webp)$/i.test(file.type)) {
       setPhotoStatus({
         type: "error",
         message: "يجب أن تكون الصورة بصيغة JPG أو PNG أو GIF أو WebP.",
