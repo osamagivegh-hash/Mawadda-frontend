@@ -16,11 +16,12 @@ export function HeroSection() {
           </span>
           <div className="space-y-5">
             <h1 className="text-4xl font-extrabold leading-[1.3] text-secondary-900 lg:text-5xl">
-              لماذا تختار <span className="text-accent-600">مودة</span>
+              رحلة زواجك تبدأ بثقة، بدعم خبراء متخصصين وإجراءات حماية شاملة
             </h1>
             <p className="max-w-xl text-lg text-secondary-600">
-              نسعدك تلقي المودعل الى اليوم المترقم رايعتمادك والإطر بليك
-              تفضيل أي تعمل عصرية أفية وموثوقة.
+              صممنا مَوَدَّة لتمنحك بيئة تحترم الخصوصية وتقدم تجربة تعارف
+              علمية، من التسجيل والتحقق حتى التوفيق والاستشارة الشخصية مع
+              اختصاصيين موثوقين.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-4 text-sm font-medium">
@@ -56,32 +57,41 @@ export function HeroSection() {
           <div className="relative overflow-hidden rounded-3xl bg-white/95 p-6 text-right shadow-xl backdrop-blur border border-accent-100">
             <div className="space-y-3">
               <h3 className="text-xl font-semibold text-secondary-800">
-                مستعدون مرافقتك حو ذاتك
+                جلسة تعريفية مجانية
               </h3>
               <p className="text-sm leading-7 text-secondary-600">
-                لن أرز أنل إلا نصل إلى قريد محطة
-                للحصول الدعم لانستخدام الآن وق يتم تقديم لضمانك
-                عبر سيد محسن
+                اختر وقتًا مناسبًا لحوار مباشر مع مستشار متخصص يرافقك في فهم
+                الأهداف، تقييم التوافق، ووضع خارطة طريق واضحة لمسيرتك نحو
+                الزواج.
               </p>
             </div>
             <div className="mt-6 rounded-2xl bg-gradient-to-br from-accent-600 to-primary-500 p-[1px]">
               <div className="space-y-4 rounded-[14px] bg-white p-5 text-sm text-secondary-600">
                 <div className="flex items-center justify-between text-secondary-700">
-                  <span>شهادة دمن مطالبنا</span>
+                  <span>الخيار الأنسب لك</span>
                   <span className="rounded-full bg-accent-100 px-3 py-1 text-xs font-semibold text-accent-700">
-                    محمد الضيفي
+                    مجاني
                   </span>
                 </div>
-                <p className="text-sm leading-6 text-secondary-600">
-                  هريقوم كلاندة الى اهل حطوة عند تسليمة
-                  للشباني كيف لدولاني سعلتهم عبر نوحيد
-                  عبر سيد محسن
-                </p>
+                <ul className="space-y-2">
+                  <li className="flex items-start gap-2">
+                    <span className="mt-1 inline-flex h-2 w-2 flex-none rounded-full bg-accent-500" />
+                    <span>تقييم شامل لوضعك الأسرى والاجتماعي</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="mt-1 inline-flex h-2 w-2 flex-none rounded-full bg-accent-500" />
+                    <span>توصيات خاصة بالتفضيلات والمطابقة المحتملة</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="mt-1 inline-flex h-2 w-2 flex-none rounded-full bg-accent-500" />
+                    <span>خطة متابعة مع فريق الدعم المتواجد على مدار اليوم</span>
+                  </li>
+                </ul>
                 <Link
                   href="/consultations"
                   className="block rounded-full bg-accent-600 px-5 py-3 text-center text-white transition-all duration-200 hover:bg-accent-700 hover:shadow-lg"
                 >
-                  التسجيل
+                  حجز جلسة التعارف
                 </Link>
               </div>
             </div>
