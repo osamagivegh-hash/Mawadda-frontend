@@ -92,7 +92,15 @@ export default function SearchPage() {
       try {
         const activeFilters = customFilters ?? filters;
         const query = Object.entries(activeFilters)
-          .filter(([, value]) => typeof value === "string" && value.trim().length > 0)
+          .filter(([key, value]) => {
+            if (typeof value !== "string" || value.trim().length === 0) return false;
+            // التحقق من صحة قيم العمر
+            if (key === "minAge" || key === "maxAge") {
+              const ageValue = parseInt(value);
+              return !isNaN(ageValue) && ageValue >= 18 && ageValue <= 80;
+            }
+            return true;
+          })
           .map(
             ([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value ?? "")}`,
           )
