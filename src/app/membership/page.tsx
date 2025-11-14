@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   getCurrentMembership,
   getMembershipPlans,
-  selectMembership,
+  upgradeMembership,
 } from "@/lib/api";
 import { getStoredAuth } from "@/lib/auth";
 
@@ -73,13 +73,30 @@ export default function MembershipPage() {
       setProcessing(planId);
       setError(null);
       setSuccess(null);
-      const response = (await selectMembership(token, planId)) as {
+      const response = (await upgradeMembership(token, planId)) as {
+        message?: string;
+        paymentUrl?: string;
+        plan?: MembershipPlan;
         membershipPlanId?: string;
         membershipExpiresAt?: string | null;
       };
-      setCurrentPlanId(response.membershipPlanId ?? planId);
-      setExpiresAt(response.membershipExpiresAt ?? null);
-      setSuccess("تم تحديث عضويتك بنجاح");
+
+      // Check if payment is required
+      if (response.paymentUrl) {
+        // Show payment message and redirect to payment
+        setError(null);
+        setSuccess(response.message || "يجب إكمال الدفع لتفعيل العضوية الجديدة.");
+        
+        // Redirect to payment URL after a short delay
+        setTimeout(() => {
+          window.open(response.paymentUrl, '_blank');
+        }, 2000);
+      } else {
+        // Direct upgrade (shouldn't happen with new system, but kept for compatibility)
+        setCurrentPlanId(response.membershipPlanId ?? planId);
+        setExpiresAt(response.membershipExpiresAt ?? null);
+        setSuccess("تم ترقية عضويتك بنجاح!");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "تعذر تحديث العضوية");
     } finally {

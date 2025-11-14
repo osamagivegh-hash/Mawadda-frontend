@@ -78,6 +78,55 @@ export function selectMembership(token: string, planId: string) {
   );
 }
 
+export function upgradeMembership(token: string, planId: string) {
+  return fetchWithToken(
+    "/membership/upgrade",
+    token,
+    {
+      method: "POST",
+      body: JSON.stringify({ planId }),
+    },
+  );
+}
+
+// Exam API functions
+export function getAvailableExams(token: string) {
+  return fetchWithToken("/exams", token);
+}
+
+export function getExamPreview(token: string, examId: string) {
+  return fetchWithToken(`/exams/${examId}/preview`, token);
+}
+
+export function purchaseExam(token: string, examId: string) {
+  return fetchWithToken(
+    `/exams/${examId}/purchase`,
+    token,
+    {
+      method: "POST",
+    },
+  );
+}
+
+export function getUserPurchasedExams(token: string) {
+  return fetchWithToken("/exams/my-exams", token);
+}
+
+export function getExamContent(token: string, examId: string) {
+  return fetchWithToken(`/exams/${examId}`, token);
+}
+
+export function submitExam(token: string, examId: string, answers: Record<string, number>) {
+  return fetchWithToken(
+    `/exams/${examId}/submit`,
+    token,
+    {
+      method: "POST",
+      body: JSON.stringify({ answers }),
+    },
+  );
+}
+
 export function getFavorites(token: string) {
   return fetchWithToken("/favorites", token);
 }

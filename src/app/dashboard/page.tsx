@@ -60,7 +60,7 @@ export default function DashboardPage() {
     () => [
       { href: "/", label: "الرئيسية" },
       { href: "/search", label: "ابحث عن شريك" },
-      { href: "/compatibility", label: "اختبار التوافق" },
+      { href: "/exams", label: "الاختبارات" },
       { href: "/services", label: "خدماتنا" },
       { href: "/contact", label: "تواصل معنا" },
     ],
