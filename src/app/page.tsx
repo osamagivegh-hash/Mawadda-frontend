@@ -1,7 +1,6 @@
 import { Navbar } from "@/components/Navbar";
 import { HeroSection } from "@/components/HeroSection";
 import { WhyUsSection } from "@/components/WhyUsSection";
-import { ServicesSection } from "@/components/ServicesSection";
 import { JourneySection } from "@/components/JourneySection";
 import { ConsultantsSection } from "@/components/ConsultantsSection";
 import { CallToActionSection } from "@/components/CallToActionSection";
@@ -15,7 +14,6 @@ export default function Home() {
       <main className="flex-1">
         <HeroSection />
         <WhyUsSection />
-        <ServicesSection />
         <JourneySection />
         <ConsultantsSection />
         <CallToActionSection />
