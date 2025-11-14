@@ -26,6 +26,7 @@ type SearchResult = {
     email: string;
     role: string;
     status: string;
+    memberId: string;
   };
   profile: {
     id: string;
@@ -161,13 +162,13 @@ export default function SearchPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 py-12">
+    <div className="min-h-screen bg-gradient-to-br from-accent-50 via-white to-primary-50 py-12">
       <div className="section-container space-y-8">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">البحث عن شريك</h1>
-            <p className="mt-2 text-sm text-slate-600">
-              استخدم الفلاتر أدناه لإيجاد الأعضاء المناسبين لتفضيلاتك.
+            <h1 className="text-3xl font-bold text-secondary-900">🔍 البحث عن شريك الحياة</h1>
+            <p className="mt-2 text-sm text-secondary-600">
+              استخدم الفلاتر المتقدمة أدناه للعثور على الأعضاء المناسبين لتفضيلاتك. يمكنك البحث بالاسم، المدينة، أو رقم العضوية.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3 text-sm">
@@ -180,9 +181,9 @@ export default function SearchPage() {
             <button
               type="button"
               onClick={clearFilters}
-              className="rounded-full border border-secondary-200 px-4 py-2 text-secondary-700 transition-colors hover:bg-secondary-50"
+              className="rounded-full border border-accent-200 px-4 py-2 text-accent-700 transition-colors hover:bg-accent-50"
             >
-              إعادة تعيين الفلاتر
+              🔄 إعادة تعيين الفلاتر
             </button>
           </div>
         </div>
@@ -276,11 +277,12 @@ export default function SearchPage() {
           </label>
 
           <label className="flex flex-col gap-2 text-sm text-slate-600">
-            رقم العضو
+            رقم العضوية
             <input
               value={filters.memberId}
               onChange={(event) => updateFilter("memberId", event.target.value)}
-              className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-100"
+              className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 focus:border-accent-400 focus:outline-none focus:ring-2 focus:ring-accent-100"
+              placeholder="مثال: MAW-000123"
             />
           </label>
 
@@ -300,9 +302,9 @@ export default function SearchPage() {
             <button
               type="submit"
               disabled={loading}
-              className="rounded-full bg-secondary-600 px-6 py-3 text-sm font-medium text-white transition-all hover:bg-secondary-500 disabled:cursor-not-allowed disabled:opacity-70"
+              className="rounded-full bg-accent-600 px-6 py-3 text-sm font-medium text-white transition-all hover:bg-accent-700 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-70"
             >
-              {loading ? "جارٍ البحث..." : "تنفيذ البحث"}
+              {loading ? "جارٍ البحث..." : "🔍 تنفيذ البحث"}
             </button>
           </div>
         </form>
@@ -315,14 +317,30 @@ export default function SearchPage() {
         ) : null}
 
         <section className="space-y-4">
-          <h2 className="text-lg font-semibold text-slate-800">النتائج ({results.length})</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-lg font-semibold text-secondary-800">
+              🔍 نتائج البحث ({results.length})
+            </h2>
+            {results.length > 0 && (
+              <span className="rounded-full bg-accent-100 px-3 py-1 text-xs font-medium text-accent-700">
+                {results.length} عضو
+              </span>
+            )}
+          </div>
           {loading ? (
-            <div className="rounded-3xl border border-slate-100 bg-white p-6 text-sm text-slate-600">
-              جارٍ تحميل النتائج...
+            <div className="rounded-3xl border border-accent-100 bg-accent-50 p-6 text-sm text-accent-700 text-center">
+              <div className="flex items-center justify-center gap-2">
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-accent-600 border-t-transparent"></div>
+                جارٍ البحث عن الأعضاء المناسبين...
+              </div>
             </div>
           ) : results.length === 0 ? (
-            <div className="rounded-3xl border border-slate-100 bg-white p-6 text-sm text-slate-600">
-              لا توجد نتائج مطابقة في الوقت الحالي. حاول تعديل الفلاتر.
+            <div className="rounded-3xl border border-slate-100 bg-white p-8 text-center">
+              <div className="text-4xl mb-3">🔍</div>
+              <h3 className="text-lg font-medium text-slate-800 mb-2">لا توجد نتائج</h3>
+              <p className="text-sm text-slate-600">
+                لم نجد أعضاء يطابقون معايير البحث الحالية. جرب تعديل الفلاتر أو توسيع نطاق البحث.
+              </p>
             </div>
           ) : (
             <div className="grid gap-4 lg:grid-cols-2">
@@ -331,7 +349,7 @@ export default function SearchPage() {
                 return (
                   <div
                     key={result.profile.id}
-                    className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm"
+                    className="rounded-3xl border border-accent-100 bg-white p-6 shadow-lg transition-all duration-200 hover:-translate-y-1 hover:shadow-xl"
                   >
                     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                       <div>
@@ -343,8 +361,8 @@ export default function SearchPage() {
                             : "عضو بدون اسم معلن"}
                         </h3>
                         <p className="text-sm text-slate-500">
-                          رقم العضو:
-                          <span className="font-medium text-secondary-600"> {result.user.id}</span>
+                          رقم العضوية:
+                          <span className="font-medium text-accent-600"> {result.user.memberId}</span>
                         </p>
                         <p className="text-sm text-slate-500">
                           الجنسية: {result.profile.nationality ?? "غير محدد"}
@@ -375,17 +393,17 @@ export default function SearchPage() {
                     <div className="mt-4 flex flex-wrap items-center gap-3">
                       <Link
                         href={`/matches?focus=${result.user.id}`}
-                        className="rounded-full bg-secondary-600 px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-secondary-500"
+                        className="rounded-full bg-accent-600 px-4 py-2 text-xs font-medium text-white transition-all hover:bg-accent-700 hover:shadow-lg"
                       >
-                        إرسال طلب تعارف
+                        💌 إرسال طلب تعارف
                       </Link>
                       <button
                         type="button"
                         onClick={() => handleAddFavorite(result.user.id)}
                         disabled={isFavorite}
-                        className="rounded-full border border-slate-200 px-4 py-2 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="rounded-full border border-accent-200 px-4 py-2 text-xs font-medium text-accent-600 transition-colors hover:bg-accent-50 disabled:cursor-not-allowed disabled:opacity-60"
                       >
-                        {isFavorite ? "ضمن المفضلة" : "إضافة إلى المفضلة"}
+                        {isFavorite ? "⭐ ضمن المفضلة" : "🤍 إضافة إلى المفضلة"}
                       </button>
                     </div>
                   </div>
