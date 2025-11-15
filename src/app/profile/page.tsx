@@ -96,6 +96,24 @@ export default function ProfilePage() {
   // Track if request is in flight to prevent double submit
   const isSubmittingRef = useRef(false);
 
+  // Helper function to convert date to YYYY-MM-DD format for date input
+  const formatDateForInput = (date: string | Date | undefined): string => {
+    if (!date) return '';
+    
+    try {
+      const dateObj = typeof date === 'string' ? new Date(date) : date;
+      if (isNaN(dateObj.getTime())) return '';
+      
+      // Convert to YYYY-MM-DD format (required by HTML date input)
+      const year = dateObj.getFullYear();
+      const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const day = String(dateObj.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    } catch {
+      return '';
+    }
+  };
+
   useEffect(() => {
     const stored = getStoredAuth();
     if (!stored) {
@@ -107,8 +125,26 @@ export default function ProfilePage() {
       `/profiles/${stored.user.id}`,
       stored.token,
     )
-      .then((data) => setProfile(data ?? {}))
-      .catch(() => setProfile({}))
+      .then((data) => {
+        if (data) {
+          // Convert dateOfBirth to YYYY-MM-DD format for date input
+          // Ensure all fields from backend are preserved
+          const formattedProfile: ProfileResponse = {
+            ...data,
+            dateOfBirth: data.dateOfBirth ? formatDateForInput(data.dateOfBirth) : '',
+            // Preserve all fields from backend response
+          };
+          setProfile(formattedProfile);
+        } else {
+          // No profile exists yet - set empty profile
+          setProfile({});
+        }
+      })
+      .catch((err) => {
+        console.error('Error loading profile:', err);
+        // On error, set empty profile but don't show error to user
+        setProfile({});
+      })
       .finally(() => setLoading(false));
   }, [router]);
 
@@ -223,18 +259,17 @@ export default function ProfilePage() {
       // Determine if profile exists (check if we have an id or required fields already filled)
       const profileExists = !!profile.id;
       
-      // Prepare payload - trim all string values (matching backend TrimPipe)
-      const payload: Record<string, any> = {};
-      Object.entries(profile).forEach(([key, value]) => {
-        if (value !== null && value !== undefined) {
-          payload[key] = typeof value === 'string' ? value.trim() : value;
-        }
-      });
-
       let updated: ProfileResponse;
       
       if (profileExists) {
-        // Update existing profile
+        // Update existing profile - send all fields (UpdateProfileDto accepts all optional fields)
+        const payload: Record<string, any> = {};
+        Object.entries(profile).forEach(([key, value]) => {
+          if (value !== null && value !== undefined) {
+            payload[key] = typeof value === 'string' ? value.trim() : value;
+          }
+        });
+        
         updated = await fetchWithToken<ProfileResponse>(
           `/profiles/${auth.user.id}`,
           auth.token,
@@ -245,19 +280,86 @@ export default function ProfilePage() {
         );
         setSuccess("تم تحديث البيانات بنجاح.");
       } else {
-        // Create new profile (POST to /profiles with required fields)
+        // Create new profile - only send required fields + optional 'about' (CreateProfileDto)
+        // Backend has whitelist: true, forbidNonWhitelisted: true, so we can only send allowed fields
+        const createPayload: Record<string, any> = {
+          gender: profile.gender?.trim(),
+          dateOfBirth: profile.dateOfBirth?.trim(),
+          city: profile.city?.trim(),
+          nationality: profile.nationality?.trim(),
+          maritalStatus: profile.maritalStatus?.trim(),
+          education: profile.education?.trim(),
+          occupation: profile.occupation?.trim(),
+          religiosityLevel: profile.religiosityLevel?.trim(),
+        };
+        
+        // Add optional 'about' field if provided
+        if (profile.about && profile.about.trim().length >= 2) {
+          createPayload.about = profile.about.trim();
+        }
+        
         updated = await fetchWithToken<ProfileResponse>(
           `/profiles`,
           auth.token,
           {
             method: "POST",
-            body: JSON.stringify(payload),
+            body: JSON.stringify(createPayload),
           },
         );
         setSuccess("تم إنشاء الملف الشخصي بنجاح.");
+        
+        // After creating profile, if there are optional fields filled, update them with PATCH
+        const optionalFields = ['firstName', 'lastName', 'countryOfResidence', 'religion', 
+          'marriageType', 'polygamyAcceptance', 'compatibilityTest', 'guardianName', 'guardianContact'];
+        const hasOptionalFields = optionalFields.some(field => profile[field as keyof ProfileResponse] && 
+          String(profile[field as keyof ProfileResponse]).trim().length > 0);
+        
+        if (hasOptionalFields) {
+          // Update with optional fields
+          const updatePayload: Record<string, any> = {};
+          Object.entries(profile).forEach(([key, value]) => {
+            // Include all fields that are not required in CreateProfileDto
+            if (key !== 'gender' && key !== 'dateOfBirth' && key !== 'city' && 
+                key !== 'nationality' && key !== 'maritalStatus' && key !== 'education' && 
+                key !== 'occupation' && key !== 'religiosityLevel') {
+              if (value !== null && value !== undefined && String(value).trim().length > 0) {
+                updatePayload[key] = typeof value === 'string' ? value.trim() : value;
+              }
+            }
+            // Include 'about' if it's valid (min 2 chars)
+            if (key === 'about' && value && String(value).trim().length >= 2) {
+              updatePayload[key] = String(value).trim();
+            }
+          });
+          
+          if (Object.keys(updatePayload).length > 0) {
+            // Update with optional fields
+            updated = await fetchWithToken<ProfileResponse>(
+              `/profiles/${auth.user.id}`,
+              auth.token,
+              {
+                method: "PATCH",
+                body: JSON.stringify(updatePayload),
+              },
+            );
+            setSuccess("تم حفظ جميع البيانات بنجاح.");
+          }
+        }
       }
       
-      setProfile(updated ?? {});
+      // Format dateOfBirth for date input after saving
+      // Also ensure all fields are preserved (merge with existing profile to keep optional fields)
+      if (updated) {
+        const formattedProfile = {
+          ...profile, // Keep existing fields (including optional ones)
+          ...updated, // Overwrite with server response
+          dateOfBirth: updated.dateOfBirth ? formatDateForInput(updated.dateOfBirth) : (profile.dateOfBirth || ''),
+        };
+        setProfile(formattedProfile);
+      } else {
+        // If update failed but we have existing profile, keep it
+        console.warn('Profile update returned null, keeping existing profile state');
+      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "حدث خطأ غير متوقع";
       
@@ -271,7 +373,12 @@ export default function ProfilePage() {
             auth.token,
           );
           if (existingProfile) {
-            setProfile(existingProfile);
+            // Format dateOfBirth for date input
+            const formattedProfile = {
+              ...existingProfile,
+              dateOfBirth: existingProfile.dateOfBirth ? formatDateForInput(existingProfile.dateOfBirth) : '',
+            };
+            setProfile(formattedProfile);
             setSuccess("تم حفظ البيانات بنجاح.");
           } else {
             setError("حدث خطأ. يرجى تحديث الصفحة والمحاولة مرة أخرى.");
@@ -388,7 +495,14 @@ export default function ProfilePage() {
         auth.user.id,
         file,
       );
-      setProfile((prev) => ({ ...prev, ...(updated ?? {}) }));
+      if (updated) {
+        // Format dateOfBirth for date input when photo is updated
+        const formattedProfile = {
+          ...updated,
+          dateOfBirth: updated.dateOfBirth ? formatDateForInput(updated.dateOfBirth) : profile.dateOfBirth,
+        };
+        setProfile(formattedProfile);
+      }
       setPhotoStatus({
         type: "success",
         message: "تم تحديث صورتك الشخصية بنجاح.",
