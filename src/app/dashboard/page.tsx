@@ -48,13 +48,27 @@ type ConsultantHighlight = {
 
 export default function DashboardPage() {
   const router = useRouter();
-  const storedAuth = useMemo(() => getStoredAuth(), []);
+  // Read auth fresh from localStorage on each render to ensure we have the latest token
+  // This prevents stale auth data after logout/login cycles
+  const [storedAuth, setStoredAuth] = useState<ReturnType<typeof getStoredAuth>>(null);
   const token = storedAuth?.token ?? null;
   const [summary, setSummary] = useState<SummaryResponse | null>(null);
   const [consultants, setConsultants] = useState<ConsultantHighlight[]>([]);
   const [favoritesCount, setFavoritesCount] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Read auth on mount and when storage changes (e.g., after login/logout)
+  useEffect(() => {
+    const updateAuth = () => {
+      setStoredAuth(getStoredAuth());
+    };
+    updateAuth();
+    
+    // Listen for storage events (e.g., when auth changes in another tab or after login)
+    window.addEventListener("storage", updateAuth);
+    return () => window.removeEventListener("storage", updateAuth);
+  }, []);
 
   const quickLinks = useMemo(
     () => [
@@ -94,8 +108,16 @@ export default function DashboardPage() {
       return;
     }
 
+    // Reset state before loading to ensure fresh data
+    setLoading(true);
+    setError(null);
+    setSummary(null);
+    setConsultants([]);
+    setFavoritesCount(0);
+
     const load = async () => {
       try {
+        // Fetch all data with fresh requests (no cache due to cache: "no-store" in fetchWithToken)
         const [summaryRes, consultantsRes, favoritesRes] = await Promise.all([
           getDashboardSummary(token),
           getConsultantHighlight(token, 3),
@@ -154,6 +176,7 @@ export default function DashboardPage() {
           <div className="flex items-center gap-3">
             <Link
               href="/"
+              prefetch={false}
               className="flex items-center gap-3 text-xl font-bold text-secondary-700"
             >
               <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-500 to-secondary-500 text-white font-display">
@@ -171,6 +194,7 @@ export default function DashboardPage() {
                 <Link
                   key={link.href}
                   href={link.href}
+                  prefetch={false}
                   className="rounded-full border border-transparent px-3 py-1.5 transition hover:border-secondary-200 hover:text-secondary-600"
                 >
                   {link.label}
@@ -242,6 +266,7 @@ export default function DashboardPage() {
                 <p className="mt-2 text-sm text-slate-600">{card.description}</p>
                 <Link
                   href={card.href}
+                  prefetch={false}
                   className="mt-6 inline-flex items-center gap-2 text-sm font-medium text-secondary-600 hover:text-secondary-500"
                 >
                   {card.cta}
@@ -307,6 +332,7 @@ export default function DashboardPage() {
                   ) : null}
                   <Link
                     href="/membership"
+                    prefetch={false}
                     className="mt-4 inline-flex items-center gap-2 text-xs font-medium text-secondary-700 hover:text-secondary-500"
                   >
                     استعراض خيارات الترقية ↗
@@ -323,6 +349,7 @@ export default function DashboardPage() {
                 </p>
                 <Link
                   href="/favorites"
+                  prefetch={false}
                   className="mt-3 inline-flex items-center gap-2 text-xs font-medium text-secondary-600 hover:text-secondary-500"
                 >
                   إدارة المفضلة ↗
@@ -342,6 +369,7 @@ export default function DashboardPage() {
             </div>
             <Link
               href="/consultations"
+              prefetch={false}
               className="rounded-full border border-secondary-200 px-4 py-2 text-sm font-medium text-secondary-700 transition-colors hover:bg-secondary-50"
             >
               حجز جلسة رؤية

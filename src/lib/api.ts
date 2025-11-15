@@ -64,6 +64,9 @@ export async function fetchWithToken<T>(
 ): Promise<T> {
   const response = await fetch(`${API_BASE}${endpoint}`, {
     ...options,
+    // Disable caching for authenticated requests to prevent stale data
+    // This ensures fresh data after login/logout cycles
+    cache: "no-store",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
@@ -168,6 +171,8 @@ export async function uploadProfilePhoto<T = unknown>(
 
   const response = await fetch(`${API_BASE}/profiles/${userId}/photo`, {
     method: "PATCH",
+    // Disable caching to ensure fresh data after photo upload
+    cache: "no-store",
     headers: {
       Authorization: `Bearer ${token}`,
     },

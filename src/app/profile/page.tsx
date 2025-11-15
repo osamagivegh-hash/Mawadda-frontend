@@ -602,6 +602,7 @@ export default function ProfilePage() {
           <div className="flex items-center gap-6">
             <Link
               href="/"
+              prefetch={false}
               className="flex items-center gap-3 text-xl font-bold text-secondary-700"
             >
               <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-500 to-secondary-500 text-white font-display">
@@ -621,6 +622,7 @@ export default function ProfilePage() {
                 <Link
                   key={link.href}
                   href={link.href}
+                  prefetch={false}
                   className="rounded-full border border-transparent px-3 py-1.5 transition hover:border-secondary-200 hover:text-secondary-600"
                 >
                   {link.label}
@@ -1014,12 +1016,14 @@ export default function ProfilePage() {
           <div className="mt-4 flex flex-wrap gap-3 text-sm text-slate-500">
             <Link
               href="/settings/password"
+              prefetch={false}
               className="rounded-full border border-slate-200 px-4 py-2 transition-colors hover:bg-slate-50"
             >
               تغيير كلمة المرور
             </Link>
             <Link
               href="/settings/notifications"
+              prefetch={false}
               className="rounded-full border border-slate-200 px-4 py-2 transition-colors hover:bg-slate-50"
             >
               تفضيلات الإشعارات
