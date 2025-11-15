@@ -129,25 +129,82 @@ export default function ProfilePage() {
         console.log('Profile loaded from backend:', data);
         if (data) {
           // Convert dateOfBirth to YYYY-MM-DD format for date input
-          // Ensure all fields from backend are preserved
+          // Initialize all profile fields to ensure they're always in state
           const formattedProfile: ProfileResponse = {
-            ...data,
-            dateOfBirth: data.dateOfBirth ? formatDateForInput(data.dateOfBirth) : '',
-            // Preserve all fields from backend response
+          // Initialize all fields with empty strings if not provided
+          firstName: '',
+          lastName: '',
+          gender: '',
+          nationality: '',
+          city: '',
+          countryOfResidence: '',
+          education: '',
+          occupation: '',
+          religiosityLevel: '',
+          religion: '',
+          maritalStatus: '',
+          marriageType: '',
+          polygamyAcceptance: '',
+          compatibilityTest: '',
+          about: '',
+          guardianName: '',
+          guardianContact: '',
+          // Override with data from backend
+          ...data,
+          // Format dateOfBirth for date input (set after spread to override)
+          dateOfBirth: data.dateOfBirth ? formatDateForInput(data.dateOfBirth) : '',
           };
           console.log('Formatted profile for display:', formattedProfile);
           setProfile(formattedProfile);
         } else {
-          // No profile exists yet - set empty profile
+          // No profile exists yet - initialize all fields as empty
           console.log('No profile found for user');
-          setProfile({});
+          setProfile({
+            firstName: '',
+            lastName: '',
+            gender: '',
+            dateOfBirth: '',
+            nationality: '',
+            city: '',
+            countryOfResidence: '',
+            education: '',
+            occupation: '',
+            religiosityLevel: '',
+            religion: '',
+            maritalStatus: '',
+            marriageType: '',
+            polygamyAcceptance: '',
+            compatibilityTest: '',
+            about: '',
+            guardianName: '',
+            guardianContact: '',
+          });
         }
       })
       .catch((err) => {
         console.error('Error loading profile:', err);
         console.error('Profile fetch error details:', err instanceof Error ? err.message : err);
-        // On error, set empty profile but don't show error to user
-        setProfile({});
+        // On error, initialize all fields as empty
+        setProfile({
+          firstName: '',
+          lastName: '',
+          gender: '',
+          dateOfBirth: '',
+          nationality: '',
+          city: '',
+          countryOfResidence: '',
+          education: '',
+          occupation: '',
+          religiosityLevel: '',
+          religion: '',
+          maritalStatus: '',
+          marriageType: '',
+          polygamyAcceptance: '',
+          compatibilityTest: '',
+          about: '',
+          guardianName: '',
+          guardianContact: '',
+        });
       })
       .finally(() => setLoading(false));
   }, [router]);
@@ -295,29 +352,36 @@ export default function ProfilePage() {
       let updated: ProfileResponse;
       
       if (profileExists) {
-        // Update existing profile - only send fields that have values (don't send empty strings)
-        // This prevents overwriting existing data with empty values
+        // Update existing profile - send all fields from form state to ensure all changes are saved
+        // Include all fields that are part of the profile form, even if empty (to allow clearing fields)
         const payload: Record<string, any> = {};
-        Object.entries(currentProfile).forEach(([key, value]) => {
-          // Only include fields that have actual values
-          if (value !== null && value !== undefined && value !== '') {
+        
+        // List of all profile fields that should be sent
+        const profileFields: (keyof ProfileResponse)[] = [
+          'firstName', 'lastName', 'gender', 'dateOfBirth', 'nationality', 
+          'city', 'countryOfResidence', 'education', 'occupation', 
+          'religiosityLevel', 'religion', 'maritalStatus', 'marriageType', 
+          'polygamyAcceptance', 'compatibilityTest', 'about', 
+          'guardianName', 'guardianContact'
+        ];
+        
+        // Send all profile fields from currentProfile state
+        profileFields.forEach((fieldName) => {
+          const value = currentProfile[fieldName];
+          if (value !== undefined) {
             if (typeof value === 'string') {
               const trimmed = value.trim();
-              // Only include non-empty strings
-              if (trimmed.length > 0) {
-                payload[key] = trimmed;
-              }
+              // Send trimmed value (empty string is valid to clear a field)
+              payload[fieldName] = trimmed;
             } else {
               // For non-strings (numbers, booleans, etc.), include as-is
-              payload[key] = value;
+              payload[fieldName] = value;
             }
           }
         });
         
-        // Always include user ID for update
-        if (!payload.user) {
-          // Don't include user in payload for PATCH (it's in the URL)
-        }
+        // Don't include internal fields like id, user, photoUrl, etc. in update payload
+        // These are managed by the backend
         
         console.log('Updating profile with payload:', payload);
         
@@ -418,12 +482,34 @@ export default function ProfilePage() {
       }
       
       // Format dateOfBirth for date input after saving
-      // Also ensure all fields are preserved (merge with existing profile to keep optional fields)
+      // Also ensure all fields are preserved (merge with existing profile to keep all fields)
       if (updated) {
         console.log('Profile after save:', updated);
+        // Initialize all fields to ensure they're always in state
         const formattedProfile: ProfileResponse = {
-          ...currentProfile, // Keep existing fields (including optional ones that weren't saved yet)
-          ...updated, // Overwrite with server response (ensures id is set)
+          // Initialize all fields with empty strings
+          firstName: '',
+          lastName: '',
+          gender: '',
+          nationality: '',
+          city: '',
+          countryOfResidence: '',
+          education: '',
+          occupation: '',
+          religiosityLevel: '',
+          religion: '',
+          maritalStatus: '',
+          marriageType: '',
+          polygamyAcceptance: '',
+          compatibilityTest: '',
+          about: '',
+          guardianName: '',
+          guardianContact: '',
+          // Override with current form state (preserves user's input)
+          ...currentProfile,
+          // Overwrite with server response (ensures id and server values are set)
+          ...updated,
+          // Format dateOfBirth for date input (set after spread to override)
           dateOfBirth: updated.dateOfBirth ? formatDateForInput(updated.dateOfBirth) : (currentProfile.dateOfBirth || ''),
           // CRITICAL: Ensure id is set so future saves use PATCH instead of POST
           id: updated.id || currentProfile.id,
@@ -447,10 +533,30 @@ export default function ProfilePage() {
             auth.token,
           );
           if (existingProfile) {
-            // Format dateOfBirth for date input
-            const formattedProfile = {
-              ...existingProfile,
-              dateOfBirth: existingProfile.dateOfBirth ? formatDateForInput(existingProfile.dateOfBirth) : '',
+            // Format dateOfBirth for date input and initialize all fields
+            const formattedProfile: ProfileResponse = {
+            // Initialize all fields
+            firstName: '',
+            lastName: '',
+            gender: '',
+            nationality: '',
+            city: '',
+            countryOfResidence: '',
+            education: '',
+            occupation: '',
+            religiosityLevel: '',
+            religion: '',
+            maritalStatus: '',
+            marriageType: '',
+            polygamyAcceptance: '',
+            compatibilityTest: '',
+            about: '',
+            guardianName: '',
+            guardianContact: '',
+            // Override with existing profile data
+            ...existingProfile,
+            // Format dateOfBirth for date input (set after spread to override)
+            dateOfBirth: existingProfile.dateOfBirth ? formatDateForInput(existingProfile.dateOfBirth) : '',
             };
             setProfile(formattedProfile);
             setSuccess("تم حفظ البيانات بنجاح.");
@@ -571,8 +677,31 @@ export default function ProfilePage() {
       );
       if (updated) {
         // Format dateOfBirth for date input when photo is updated
+        // Preserve all existing profile fields and merge with updated photo data
         const formattedProfile: ProfileResponse = {
+          // Initialize all fields
+          firstName: '',
+          lastName: '',
+          gender: '',
+          nationality: '',
+          city: '',
+          countryOfResidence: '',
+          education: '',
+          occupation: '',
+          religiosityLevel: '',
+          religion: '',
+          maritalStatus: '',
+          marriageType: '',
+          polygamyAcceptance: '',
+          compatibilityTest: '',
+          about: '',
+          guardianName: '',
+          guardianContact: '',
+          // Preserve current profile state (all form fields)
+          ...profile,
+          // Override with updated photo data from server
           ...updated,
+          // Format dateOfBirth for date input (set after spread to override)
           dateOfBirth: updated.dateOfBirth ? formatDateForInput(updated.dateOfBirth) : (profile.dateOfBirth || ''),
         };
         setProfile(formattedProfile);
