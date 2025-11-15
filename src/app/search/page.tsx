@@ -195,11 +195,10 @@ export default function SearchPage() {
     if (!token) {
       router.push("/auth/login");
     } else {
-      void (async () => {
-        await Promise.all([handleSearch(), loadFavorites()]);
-      })();
+      // Only load favorites on initial load, don't auto-search
+      void loadFavorites();
     }
-  }, [token, router, handleSearch, loadFavorites]);
+  }, [token, router, loadFavorites]);
 
   if (!token) {
     return null;
