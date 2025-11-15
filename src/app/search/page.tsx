@@ -82,8 +82,7 @@ const initialFilters: SearchFilters = {
 
 export default function SearchPage() {
   const router = useRouter();
-  const storedAuth = useMemo(() => getStoredAuth(), []);
-  const token = storedAuth?.token ?? null;
+  const [token, setToken] = useState<string | null>(null);
   const [filters, setFilters] = useState<SearchFilters>(initialFilters);
   const [results, setResults] = useState<SearchResult[]>([]);
   const [favoritesIds, setFavoritesIds] = useState<string[]>([]);
@@ -109,19 +108,22 @@ export default function SearchPage() {
       
       const activeFilters = customFilters ?? filters;
       
-      // Validate required fields
+      // Validate MANDATORY fields (gender and age are required)
       if (!activeFilters.gender || activeFilters.gender.trim().length === 0) {
-        setError("يجب اختيار الجنس للبحث");
+        setError("يجب اختيار الجنس للبحث (مطلوب)");
         setLoading(false);
+        setFeedback(null);
         return;
       }
 
       const minAgeValue = activeFilters.minAge ? parseInt(activeFilters.minAge) : undefined;
       const maxAgeValue = activeFilters.maxAge ? parseInt(activeFilters.maxAge) : undefined;
 
+      // At least one age value (minAge or maxAge) is required
       if (!minAgeValue && !maxAgeValue) {
-        setError("يجب إدخال العمر (من أو إلى) للبحث");
+        setError("يجب إدخال العمر (من أو إلى) للبحث (مطلوب)");
         setLoading(false);
+        setFeedback(null);
         return;
       }
 
@@ -155,8 +157,10 @@ export default function SearchPage() {
         // Build payload object - only include defined values
         const payload: Record<string, string | number> = {};
         
-        // Add required fields
+        // Add required fields (MANDATORY)
+        // Gender: backend will normalize Arabic/corrupted values
         if (activeFilters.gender) {
+          // Trim whitespace - backend handles normalization of Arabic values
           payload.gender = activeFilters.gender.trim();
         }
         
@@ -232,21 +236,49 @@ export default function SearchPage() {
         
         if (Array.isArray(data)) {
           setResults(data);
+          setError(null); // Clear any previous errors
+          
           if (data.length === 0) {
-            setFeedback("لم يتم العثور على نتائج مطابقة لمعايير البحث. جرب معايير مختلفة أو قم بإزالة بعض الفلاتر.");
+            setFeedback("لم يتم العثور على نتائج مطابقة لمعايير البحث. جرب معايير مختلفة أو قم بإزالة بعض الفلاتر الاختيارية.");
           } else {
-            setFeedback(`تم العثور على ${data.length} نتيجة`);
+            setFeedback(`✅ تم العثور على ${data.length} ${data.length === 1 ? 'نتيجة' : 'نتائج'}`);
           }
         } else {
           setResults([]);
-          setError("استجابة غير صحيحة من الخادم");
+          setError("استجابة غير صحيحة من الخادم. يرجى المحاولة مرة أخرى.");
+          setFeedback(null);
         }
         
       } catch (err) {
         console.error("Search error:", err);
-        const errorMessage = err instanceof Error ? err.message : "حدث خطأ غير متوقع";
+        
+        // Handle API errors with better error messages
+        // Backend throws BadRequestException with messages like:
+        // - "Gender is required for search"
+        // - "Age range (minAge or maxAge) is required for search"
+        // - "Minimum age cannot be greater than maximum age"
+        // - "Invalid gender value: ..."
+        let errorMessage = "حدث خطأ غير متوقع";
+        
+        if (err instanceof Error) {
+          const message = err.message;
+          errorMessage = message;
+          
+          // Map backend error messages to user-friendly Arabic messages
+          if (message.includes("Gender is required") || message.includes("الجنس مطلوب")) {
+            errorMessage = "يجب اختيار الجنس للبحث (مطلوب)";
+          } else if (message.includes("Age range") || message.includes("العمر مطلوب")) {
+            errorMessage = "يجب إدخال العمر (من أو إلى) للبحث (مطلوب)";
+          } else if (message.includes("Minimum age cannot be greater") || message.includes("العمر الأدنى")) {
+            errorMessage = "العمر الأدنى لا يمكن أن يكون أكبر من العمر الأقصى";
+          } else if (message.includes("Invalid gender value")) {
+            errorMessage = "قيمة الجنس غير صحيحة. يجب أن تكون \"male\" أو \"female\" أو \"ذكر\" أو \"أنثى\"";
+          }
+        }
+        
         setError(`خطأ في البحث: ${errorMessage}`);
         setResults([]);
+        setFeedback(null);
       } finally {
         setLoading(false);
       }
@@ -254,14 +286,23 @@ export default function SearchPage() {
     [filters, token],
   );
 
+  // Load token from localStorage on mount (client-side only)
   useEffect(() => {
-    if (!token) {
+    const storedAuth = getStoredAuth();
+    const authToken = storedAuth?.token ?? null;
+    setToken(authToken);
+    
+    if (!authToken) {
       router.push("/auth/login");
-    } else {
-      // Only load favorites on initial load, don't auto-search
+    }
+  }, [router]);
+
+  // Load favorites when token is available
+  useEffect(() => {
+    if (token) {
       void loadFavorites();
     }
-  }, [token, router, loadFavorites]);
+  }, [token, loadFavorites]);
 
   if (!token) {
     return null;
@@ -295,18 +336,40 @@ export default function SearchPage() {
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     
-    // Validate required fields before submitting
+    // Validate MANDATORY fields before submitting
     if (!filters.gender || filters.gender.trim().length === 0) {
-      setError("يجب اختيار الجنس للبحث");
+      setError("يجب اختيار الجنس للبحث (مطلوب)");
+      setFeedback(null);
       return;
     }
 
     const minAgeValue = filters.minAge ? parseInt(filters.minAge) : undefined;
     const maxAgeValue = filters.maxAge ? parseInt(filters.maxAge) : undefined;
 
+    // At least one age value (minAge or maxAge) is required
     if (!minAgeValue && !maxAgeValue) {
-      setError("يجب إدخال العمر (من أو إلى) للبحث");
+      setError("يجب إدخال العمر (من أو إلى) للبحث (مطلوب)");
+      setFeedback(null);
       return;
+    }
+
+    // Validate age range if both are provided
+    if (minAgeValue !== undefined && maxAgeValue !== undefined) {
+      if (isNaN(minAgeValue) || isNaN(maxAgeValue)) {
+        setError("يجب إدخال أرقام صحيحة للعمر");
+        setFeedback(null);
+        return;
+      }
+      if (minAgeValue < 18 || minAgeValue > 80 || maxAgeValue < 18 || maxAgeValue > 80) {
+        setError("يجب أن يكون العمر بين 18 و 80 سنة");
+        setFeedback(null);
+        return;
+      }
+      if (minAgeValue > maxAgeValue) {
+        setError("العمر الأدنى لا يمكن أن يكون أكبر من العمر الأقصى");
+        setFeedback(null);
+        return;
+      }
     }
 
     await handleSearch();
@@ -593,7 +656,7 @@ export default function SearchPage() {
           <div className="mt-6">
             {!isSearchButtonEnabled() && !loading && (
               <p className="mb-2 text-sm text-amber-600 text-center">
-                ⚠️ يجب اختيار الجنس وإدخال العمر للبحث
+                ⚠️ يجب اختيار الجنس وإدخال العمر للبحث (حقول مطلوبة)
               </p>
             )}
             <button
