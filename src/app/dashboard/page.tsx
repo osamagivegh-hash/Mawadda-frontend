@@ -25,6 +25,15 @@ export default function DashboardPage() {
   const [auth, setAuth] = useState(null);
   const token = auth?.token ?? null;
 
+  // ============================
+  // 2) DATA STATES (يجب أن تكون قبل أي return)
+  // ============================
+  const [summary, setSummary] = useState(null);
+  const [consultants, setConsultants] = useState([]);
+  const [favoritesCount, setFavoritesCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
   // قراءة التوكن فور تحميل الصفحة فقط
   useEffect(() => {
     const stored = getStoredAuth();
@@ -58,15 +67,6 @@ export default function DashboardPage() {
   if (!token) {
     return null;
   }
-
-  // ============================
-  // 2) DATA STATES
-  // ============================
-  const [summary, setSummary] = useState(null);
-  const [consultants, setConsultants] = useState([]);
-  const [favoritesCount, setFavoritesCount] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
 
   // ============================
   // 3) LOAD DASHBOARD DATA
