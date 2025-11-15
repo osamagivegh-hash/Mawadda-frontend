@@ -149,72 +149,86 @@ export default function SearchPage() {
       setFeedback(null);
       
       try {
-        console.log("Active filters before processing:", activeFilters);
+        console.log('\n========== FRONTEND SEARCH START ==========');
+        console.log('Active filters before processing:', activeFilters);
         
-        // Build query parameters - only include defined values
-        const queryParams = new URLSearchParams();
+        // Build payload object - only include defined values
+        const payload: Record<string, string | number> = {};
         
         // Add required fields
         if (activeFilters.gender) {
-          queryParams.append('gender', activeFilters.gender.trim());
+          payload.gender = activeFilters.gender.trim();
         }
         
         if (minAgeValue !== undefined && !isNaN(minAgeValue)) {
-          queryParams.append('minAge', String(minAgeValue));
+          payload.minAge = minAgeValue;
         }
         
         if (maxAgeValue !== undefined && !isNaN(maxAgeValue)) {
-          queryParams.append('maxAge', String(maxAgeValue));
+          payload.maxAge = maxAgeValue;
         }
         
         // Add optional fields only if they have valid values
         if (activeFilters.city && activeFilters.city.trim().length > 0 && activeFilters.city.trim().toLowerCase() !== 'all') {
-          queryParams.append('city', activeFilters.city.trim());
+          payload.city = activeFilters.city.trim();
         }
         
         if (activeFilters.nationality && activeFilters.nationality.trim().length > 0 && activeFilters.nationality.trim().toLowerCase() !== 'all') {
-          queryParams.append('nationality', activeFilters.nationality.trim());
+          payload.nationality = activeFilters.nationality.trim();
         }
         
         if (activeFilters.education && activeFilters.education.trim().length > 0 && activeFilters.education.trim().toLowerCase() !== 'all') {
-          queryParams.append('education', activeFilters.education.trim());
+          payload.education = activeFilters.education.trim();
         }
         
         if (activeFilters.maritalStatus && activeFilters.maritalStatus.trim().length > 0 && activeFilters.maritalStatus.trim().toLowerCase() !== 'all') {
-          queryParams.append('maritalStatus', activeFilters.maritalStatus.trim());
+          payload.maritalStatus = activeFilters.maritalStatus.trim();
         }
         
         if (activeFilters.countryOfResidence && activeFilters.countryOfResidence.trim().length > 0 && activeFilters.countryOfResidence.trim().toLowerCase() !== 'all') {
-          queryParams.append('countryOfResidence', activeFilters.countryOfResidence.trim());
+          payload.countryOfResidence = activeFilters.countryOfResidence.trim();
         }
         
         if (activeFilters.height && activeFilters.height.trim().length > 0) {
           const heightValue = parseInt(activeFilters.height);
           if (!isNaN(heightValue) && heightValue >= 100 && heightValue <= 250) {
-            queryParams.append('height', String(heightValue));
+            payload.height = heightValue;
           }
         }
         
         if (activeFilters.hasPhoto === 'true') {
-          queryParams.append('hasPhoto', 'true');
+          payload.hasPhoto = 'true';
         }
         
         if (activeFilters.keyword && activeFilters.keyword.trim().length > 0) {
-          queryParams.append('keyword', activeFilters.keyword.trim());
+          payload.keyword = activeFilters.keyword.trim();
         }
         
         if (activeFilters.memberId && activeFilters.memberId.trim().length > 0) {
-          queryParams.append('memberId', activeFilters.memberId.trim());
+          payload.memberId = activeFilters.memberId.trim();
         }
+        
+        // Build query string from payload
+        const queryParams = new URLSearchParams();
+        Object.entries(payload).forEach(([key, value]) => {
+          queryParams.append(key, String(value));
+        });
         
         const queryString = queryParams.toString();
         const endpoint = `/search?${queryString}`;
         
-        console.log("Search endpoint:", endpoint);
-        console.log("Query params:", Object.fromEntries(queryParams.entries()));
+        // ==================== DEBUG LOGGING ====================
+        console.log('SEARCH PAYLOAD:', JSON.stringify(payload, null, 2));
+        console.log('Search endpoint:', endpoint);
+        console.log('Query string:', queryString);
+        console.log('Query params object:', Object.fromEntries(queryParams.entries()));
+        // ==================== END DEBUG ====================
         
         const data = await fetchWithToken<SearchResult[]>(endpoint, token);
-        console.log("Search response:", data);
+        console.log('Search response:', data);
+        console.log('Response type:', Array.isArray(data) ? 'array' : typeof data);
+        console.log('Response length:', Array.isArray(data) ? data.length : 'N/A');
+        console.log('========== FRONTEND SEARCH END ==========\n');
         
         if (Array.isArray(data)) {
           setResults(data);
