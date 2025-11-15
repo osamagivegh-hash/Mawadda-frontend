@@ -10,6 +10,8 @@ type SearchFilters = {
   gender?: string;
   minAge?: string;
   maxAge?: string;
+  city?: string;
+  height?: string;
   countryOfResidence?: string;
   nationality?: string;
   education?: string;
@@ -50,6 +52,7 @@ type SearchResult = {
     about?: string;
     photoUrl?: string;
     dateOfBirth?: string;
+    height?: number;
   };
 };
 
@@ -61,6 +64,8 @@ const initialFilters: SearchFilters = {
   gender: "",
   minAge: "",
   maxAge: "",
+  city: "",
+  height: "",
   countryOfResidence: "",
   nationality: "",
   education: "",
@@ -100,29 +105,85 @@ export default function SearchPage() {
   const handleSearch = useCallback(
     async (customFilters?: SearchFilters) => {
       if (!token) return;
+      
+      const activeFilters = customFilters ?? filters;
+      
+      // Validate age range if both are provided
+      if (activeFilters.minAge && activeFilters.maxAge) {
+        const minAge = parseInt(activeFilters.minAge);
+        const maxAge = parseInt(activeFilters.maxAge);
+        if (!isNaN(minAge) && !isNaN(maxAge) && minAge > maxAge) {
+          setError("العمر الأدنى لا يمكن أن يكون أكبر من العمر الأقصى");
+          setLoading(false);
+          return;
+        }
+      }
+
       setLoading(true);
       setError(null);
+      setFeedback(null);
+      
       try {
-        const activeFilters = customFilters ?? filters;
-        const query = Object.entries(activeFilters)
-          .filter(([key, value]) => {
-            if (typeof value !== "string" || value.trim().length === 0) return false;
-            // التحقق من صحة قيم العمر
-            if (key === "minAge" || key === "maxAge") {
-              const ageValue = parseInt(value);
-              return !isNaN(ageValue) && ageValue >= 18 && ageValue <= 80;
+        console.log("Active filters before processing:", activeFilters);
+        
+        // Build query parameters
+        const queryParams = new URLSearchParams();
+        
+        // Add all filters that have values
+        Object.entries(activeFilters).forEach(([key, value]) => {
+          if (!value) return;
+          
+          const stringValue = String(value).trim();
+          if (stringValue.length === 0) return;
+          if (stringValue.toLowerCase() === "all") return;
+          
+          // Handle special cases
+          if (key === "minAge" || key === "maxAge") {
+            const ageValue = parseInt(stringValue);
+            if (!isNaN(ageValue) && ageValue >= 18 && ageValue <= 80) {
+              queryParams.append(key, String(ageValue));
             }
-            return true;
-          })
-          .map(
-            ([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value ?? "")}`,
-          )
-          .join("&");
-        const endpoint = query ? `/search?${query}` : "/search";
+            return;
+          }
+          
+          if (key === "height") {
+            const heightValue = parseInt(stringValue);
+            if (!isNaN(heightValue) && heightValue >= 100 && heightValue <= 250) {
+              queryParams.append(key, String(heightValue));
+            }
+            return;
+          }
+          
+          // Add other filters
+          queryParams.append(key, stringValue);
+        });
+        
+        const queryString = queryParams.toString();
+        const endpoint = queryString ? `/search?${queryString}` : "/search";
+        
+        console.log("Search endpoint:", endpoint);
+        console.log("Query params:", Object.fromEntries(queryParams.entries()));
+        
         const data = await fetchWithToken<SearchResult[]>(endpoint, token);
-        setResults(Array.isArray(data) ? data : []);
+        console.log("Search response:", data);
+        
+        if (Array.isArray(data)) {
+          setResults(data);
+          if (data.length === 0) {
+            setFeedback("لم يتم العثور على نتائج مطابقة لمعايير البحث. جرب معايير مختلفة أو قم بإزالة بعض الفلاتر.");
+          } else {
+            setFeedback(`تم العثور على ${data.length} نتيجة`);
+          }
+        } else {
+          setResults([]);
+          setError("استجابة غير صحيحة من الخادم");
+        }
+        
       } catch (err) {
-        setError(err instanceof Error ? err.message : "حدث خطأ غير متوقع");
+        console.error("Search error:", err);
+        const errorMessage = err instanceof Error ? err.message : "حدث خطأ غير متوقع";
+        setError(`خطأ في البحث: ${errorMessage}`);
+        setResults([]);
       } finally {
         setLoading(false);
       }
@@ -234,6 +295,32 @@ export default function SearchPage() {
                   />
                 </label>
               </div>
+
+              {/* المدينة */}
+              <label className="flex flex-col gap-2 text-sm text-slate-600">
+                المدينة
+                <input
+                  type="text"
+                  value={filters.city}
+                  onChange={(event) => updateFilter("city", event.target.value)}
+                  className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-slate-900 focus:border-accent-400 focus:outline-none focus:ring-2 focus:ring-accent-100"
+                  placeholder="الرياض، جدة، دبي..."
+                />
+              </label>
+
+              {/* الطول */}
+              <label className="flex flex-col gap-2 text-sm text-slate-600">
+                الطول (سم)
+                <input
+                  type="number"
+                  min={100}
+                  max={250}
+                  value={filters.height}
+                  onChange={(event) => updateFilter("height", event.target.value)}
+                  className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-slate-900 focus:border-accent-400 focus:outline-none focus:ring-2 focus:ring-accent-100"
+                  placeholder="170"
+                />
+              </label>
 
               {/* بلد الإقامة */}
               <label className="flex flex-col gap-2 text-sm text-slate-600">
@@ -533,6 +620,11 @@ export default function SearchPage() {
                         {result.profile.education && (
                           <p className="text-sm text-slate-500">
                             التعليم: {result.profile.education}
+                          </p>
+                        )}
+                        {result.profile.height && (
+                          <p className="text-sm text-slate-500">
+                            الطول: {result.profile.height} سم
                           </p>
                         )}
                       </div>
