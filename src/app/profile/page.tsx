@@ -10,6 +10,9 @@ import {
   StoredAuth,
 } from "@/lib/auth";
 
+// useRef to track if request is in flight (prevents double submit)
+// More reliable than state because it's synchronous
+
 type ProfileResponse = {
   id?: string;
   firstName?: string;
@@ -89,6 +92,9 @@ export default function ProfilePage() {
   const [photoUploading, setPhotoUploading] = useState(false);
   const [photoStatus, setPhotoStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const settingsRef = useRef<HTMLDivElement | null>(null);
+  
+  // Track if request is in flight to prevent double submit
+  const isSubmittingRef = useRef(false);
 
   useEffect(() => {
     const stored = getStoredAuth();
@@ -122,10 +128,29 @@ export default function ProfilePage() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    
+    // GUARD 1: Prevent double submit - check ref first (synchronous)
+    if (isSubmittingRef.current) {
+      console.warn('Profile submission already in progress, ignoring duplicate request');
+      return;
+    }
+    
+    // GUARD 2: Prevent double submit - check state (backup check)
+    if (saving) {
+      console.warn('Profile submission already in progress (saving=true), ignoring duplicate request');
+      return;
+    }
+    
     if (!auth) {
       router.push("/auth/login");
       return;
     }
+    
+    // Set submitting flag immediately (synchronous, prevents double execution)
+    isSubmittingRef.current = true;
+    setSaving(true);
+    setError(null);
+    setSuccess(null);
     
     // Validate required fields (matching backend CreateProfileDto)
     const requiredFields = [
@@ -150,6 +175,8 @@ export default function ProfilePage() {
       const missingLabels = missingFields.map(f => f.label).join('، ');
       setError(`يجب ملء الحقول التالية (مطلوبة): ${missingLabels}`);
       setSuccess(null);
+      isSubmittingRef.current = false; // Reset flag on validation error
+      setSaving(false);
       return;
     }
 
@@ -157,6 +184,8 @@ export default function ProfilePage() {
     if (profile.gender && profile.gender !== 'male' && profile.gender !== 'female') {
       setError('الجنس يجب أن يكون "male" أو "female" (ذكر أو أنثى)');
       setSuccess(null);
+      isSubmittingRef.current = false; // Reset flag on validation error
+      setSaving(false);
       return;
     }
 
@@ -172,6 +201,8 @@ export default function ProfilePage() {
       if (isNaN(dateValue.getTime())) {
         setError('تاريخ الميلاد غير صحيح. يرجى إدخال تاريخ صحيح');
         setSuccess(null);
+        isSubmittingRef.current = false; // Reset flag on validation error
+        setSaving(false);
         return;
       }
       // Ensure it's in ISO format (YYYY-MM-DD)
@@ -183,12 +214,10 @@ export default function ProfilePage() {
     if (profile.about && profile.about.trim().length < 2) {
       setError('النبذة التعريفية يجب أن تكون على الأقل حرفين');
       setSuccess(null);
+      isSubmittingRef.current = false; // Reset flag on validation error
+      setSaving(false);
       return;
     }
-
-    setSaving(true);
-    setError(null);
-    setSuccess(null);
     
     try {
       // Determine if profile exists (check if we have an id or required fields already filled)
@@ -233,8 +262,23 @@ export default function ProfilePage() {
       const errorMessage = err instanceof Error ? err.message : "حدث خطأ غير متوقع";
       
       // Handle common backend errors
-      if (errorMessage.includes("already exists")) {
-        setError("الملف الشخصي موجود بالفعل. يرجى استخدام تحديث البيانات.");
+      // If profile already exists, treat it as success (duplicate request was handled)
+      if (errorMessage.includes("already exists") || errorMessage.includes("409")) {
+        // This might be a duplicate request, check if profile exists now
+        try {
+          const existingProfile = await fetchWithToken<ProfileResponse>(
+            `/profiles/${auth.user.id}`,
+            auth.token,
+          );
+          if (existingProfile) {
+            setProfile(existingProfile);
+            setSuccess("تم حفظ البيانات بنجاح.");
+          } else {
+            setError("حدث خطأ. يرجى تحديث الصفحة والمحاولة مرة أخرى.");
+          }
+        } catch {
+          setError("الملف الشخصي موجود بالفعل. يرجى تحديث الصفحة.");
+        }
       } else if (errorMessage.includes("required") || errorMessage.includes("مطلوب")) {
         setError(errorMessage);
       } else if (errorMessage.includes("gender must be")) {
@@ -245,6 +289,8 @@ export default function ProfilePage() {
         setError(`خطأ في الحفظ: ${errorMessage}`);
       }
     } finally {
+      // Always reset flags in finally block
+      isSubmittingRef.current = false;
       setSaving(false);
     }
   }
@@ -472,7 +518,12 @@ export default function ProfilePage() {
               جاري تحميل البيانات...
             </div>
           ) : (
-            <form ref={formRef} onSubmit={handleSubmit} className="mt-8 space-y-8">
+            <form 
+              ref={formRef} 
+              onSubmit={handleSubmit} 
+              className="mt-8 space-y-8"
+              noValidate
+            >
               {/* Required Fields Notice */}
               <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                 <p className="font-medium mb-1">ملاحظة:</p>
