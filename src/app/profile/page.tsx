@@ -342,22 +342,22 @@ export default function ProfilePage() {
         ];
         
         // Send ALL profile fields from current form state (has latest form values)
+        // CRITICAL: Always include ALL fields to ensure nothing is missed
         profileFields.forEach((fieldName) => {
           // Use currentFormState which is a snapshot of profile at submit time
           const value = currentFormState[fieldName];
-          // ALWAYS include the field, even if undefined/null/empty
-          if (value !== undefined && value !== null) {
-            if (typeof value === 'string') {
-              const trimmed = value.trim();
-              // Include ALL strings, even empty ones (allows clearing fields)
-              payload[fieldName] = trimmed;
-            } else {
-              // For non-strings (numbers, booleans, etc.), include as-is
-              payload[fieldName] = value;
-            }
-          } else {
-            // If field is undefined/null, send empty string to ensure field is updated
+          
+          // ALWAYS include every field - never skip any field
+          if (value === undefined || value === null) {
+            // If undefined/null, send empty string
             payload[fieldName] = '';
+          } else if (typeof value === 'string') {
+            // For strings, always include (even if empty after trim)
+            const trimmed = value.trim();
+            payload[fieldName] = trimmed;
+          } else {
+            // For non-strings (numbers, booleans, etc.), include as-is
+            payload[fieldName] = value;
           }
         });
         
