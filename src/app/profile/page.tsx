@@ -126,6 +126,7 @@ export default function ProfilePage() {
       stored.token,
     )
       .then((data) => {
+        console.log('Profile loaded from backend:', data);
         if (data) {
           // Convert dateOfBirth to YYYY-MM-DD format for date input
           // Ensure all fields from backend are preserved
@@ -134,14 +135,17 @@ export default function ProfilePage() {
             dateOfBirth: data.dateOfBirth ? formatDateForInput(data.dateOfBirth) : '',
             // Preserve all fields from backend response
           };
+          console.log('Formatted profile for display:', formattedProfile);
           setProfile(formattedProfile);
         } else {
           // No profile exists yet - set empty profile
+          console.log('No profile found for user');
           setProfile({});
         }
       })
       .catch((err) => {
         console.error('Error loading profile:', err);
+        console.error('Profile fetch error details:', err instanceof Error ? err.message : err);
         // On error, set empty profile but don't show error to user
         setProfile({});
       })
@@ -256,19 +260,66 @@ export default function ProfilePage() {
     }
     
     try {
-      // Determine if profile exists (check if we have an id or required fields already filled)
-      const profileExists = !!profile.id;
+      // Determine if profile exists
+      // Check if we have an id in state OR try to fetch existing profile first
+      let profileExists = !!profile.id;
+      
+      // If no id in state, try to fetch existing profile to check if it exists
+      let currentProfile = profile; // Use a variable to hold current profile state
+      
+      if (!profileExists) {
+        try {
+          const existingProfile = await fetchWithToken<ProfileResponse | null>(
+            `/profiles/${auth.user.id}`,
+            auth.token,
+          );
+          if (existingProfile && existingProfile.id) {
+            profileExists = true;
+            // Merge existing profile data with current state
+            const mergedProfile: ProfileResponse = {
+              ...currentProfile,
+              ...existingProfile,
+              dateOfBirth: existingProfile.dateOfBirth ? formatDateForInput(existingProfile.dateOfBirth) : (currentProfile.dateOfBirth || ''),
+              id: existingProfile.id,
+            };
+            setProfile(mergedProfile);
+            // Update the current profile reference for the rest of this function
+            currentProfile = mergedProfile;
+          }
+        } catch (err) {
+          // Profile doesn't exist yet, will create new one
+          console.log('No existing profile found, will create new one');
+        }
+      }
       
       let updated: ProfileResponse;
       
       if (profileExists) {
-        // Update existing profile - send all fields (UpdateProfileDto accepts all optional fields)
+        // Update existing profile - only send fields that have values (don't send empty strings)
+        // This prevents overwriting existing data with empty values
         const payload: Record<string, any> = {};
-        Object.entries(profile).forEach(([key, value]) => {
-          if (value !== null && value !== undefined) {
-            payload[key] = typeof value === 'string' ? value.trim() : value;
+        Object.entries(currentProfile).forEach(([key, value]) => {
+          // Only include fields that have actual values
+          if (value !== null && value !== undefined && value !== '') {
+            if (typeof value === 'string') {
+              const trimmed = value.trim();
+              // Only include non-empty strings
+              if (trimmed.length > 0) {
+                payload[key] = trimmed;
+              }
+            } else {
+              // For non-strings (numbers, booleans, etc.), include as-is
+              payload[key] = value;
+            }
           }
         });
+        
+        // Always include user ID for update
+        if (!payload.user) {
+          // Don't include user in payload for PATCH (it's in the URL)
+        }
+        
+        console.log('Updating profile with payload:', payload);
         
         updated = await fetchWithToken<ProfileResponse>(
           `/profiles/${auth.user.id}`,
@@ -283,21 +334,22 @@ export default function ProfilePage() {
         // Create new profile - only send required fields + optional 'about' (CreateProfileDto)
         // Backend has whitelist: true, forbidNonWhitelisted: true, so we can only send allowed fields
         const createPayload: Record<string, any> = {
-          gender: profile.gender?.trim(),
-          dateOfBirth: profile.dateOfBirth?.trim(),
-          city: profile.city?.trim(),
-          nationality: profile.nationality?.trim(),
-          maritalStatus: profile.maritalStatus?.trim(),
-          education: profile.education?.trim(),
-          occupation: profile.occupation?.trim(),
-          religiosityLevel: profile.religiosityLevel?.trim(),
+          gender: currentProfile.gender?.trim(),
+          dateOfBirth: currentProfile.dateOfBirth?.trim(),
+          city: currentProfile.city?.trim(),
+          nationality: currentProfile.nationality?.trim(),
+          maritalStatus: currentProfile.maritalStatus?.trim(),
+          education: currentProfile.education?.trim(),
+          occupation: currentProfile.occupation?.trim(),
+          religiosityLevel: currentProfile.religiosityLevel?.trim(),
         };
         
         // Add optional 'about' field if provided
-        if (profile.about && profile.about.trim().length >= 2) {
-          createPayload.about = profile.about.trim();
+        if (currentProfile.about && currentProfile.about.trim().length >= 2) {
+          createPayload.about = currentProfile.about.trim();
         }
         
+        console.log('Creating new profile with payload:', createPayload);
         updated = await fetchWithToken<ProfileResponse>(
           `/profiles`,
           auth.token,
@@ -306,35 +358,50 @@ export default function ProfilePage() {
             body: JSON.stringify(createPayload),
           },
         );
+        console.log('Profile created successfully:', updated);
         setSuccess("تم إنشاء الملف الشخصي بنجاح.");
         
         // After creating profile, if there are optional fields filled, update them with PATCH
         const optionalFields = ['firstName', 'lastName', 'countryOfResidence', 'religion', 
           'marriageType', 'polygamyAcceptance', 'compatibilityTest', 'guardianName', 'guardianContact'];
-        const hasOptionalFields = optionalFields.some(field => profile[field as keyof ProfileResponse] && 
-          String(profile[field as keyof ProfileResponse]).trim().length > 0);
+        const hasOptionalFields = optionalFields.some(field => currentProfile[field as keyof ProfileResponse] && 
+          String(currentProfile[field as keyof ProfileResponse]).trim().length > 0);
         
-        if (hasOptionalFields) {
+        // Also check if 'about' field has valid content (min 2 chars) and wasn't included in create
+        const hasAbout = currentProfile.about && currentProfile.about.trim().length >= 2;
+        
+        if (hasOptionalFields || hasAbout) {
           // Update with optional fields
           const updatePayload: Record<string, any> = {};
-          Object.entries(profile).forEach(([key, value]) => {
+          
+          // Include all optional fields that have values
+          Object.entries(currentProfile).forEach(([key, value]) => {
             // Include all fields that are not required in CreateProfileDto
             if (key !== 'gender' && key !== 'dateOfBirth' && key !== 'city' && 
                 key !== 'nationality' && key !== 'maritalStatus' && key !== 'education' && 
-                key !== 'occupation' && key !== 'religiosityLevel') {
-              if (value !== null && value !== undefined && String(value).trim().length > 0) {
-                updatePayload[key] = typeof value === 'string' ? value.trim() : value;
+                key !== 'occupation' && key !== 'religiosityLevel' && key !== 'id' && key !== 'user') {
+              if (value !== null && value !== undefined && value !== '') {
+                if (typeof value === 'string') {
+                  const trimmed = value.trim();
+                  // For 'about', require min 2 chars; for others, any non-empty string
+                  if (key === 'about') {
+                    if (trimmed.length >= 2) {
+                      updatePayload[key] = trimmed;
+                    }
+                  } else if (trimmed.length > 0) {
+                    updatePayload[key] = trimmed;
+                  }
+                } else {
+                  updatePayload[key] = value;
+                }
               }
-            }
-            // Include 'about' if it's valid (min 2 chars)
-            if (key === 'about' && value && String(value).trim().length >= 2) {
-              updatePayload[key] = String(value).trim();
             }
           });
           
           if (Object.keys(updatePayload).length > 0) {
-            // Update with optional fields
-            updated = await fetchWithToken<ProfileResponse>(
+            console.log('Updating profile with optional fields:', updatePayload);
+            // Update with optional fields - use the created profile's data to ensure we have the id
+            const patchResult = await fetchWithToken<ProfileResponse>(
               `/profiles/${auth.user.id}`,
               auth.token,
               {
@@ -342,6 +409,9 @@ export default function ProfilePage() {
                 body: JSON.stringify(updatePayload),
               },
             );
+            console.log('Profile updated with optional fields:', patchResult);
+            // Merge the update result with the created profile
+            updated = { ...updated, ...patchResult };
             setSuccess("تم حفظ جميع البيانات بنجاح.");
           }
         }
@@ -350,11 +420,15 @@ export default function ProfilePage() {
       // Format dateOfBirth for date input after saving
       // Also ensure all fields are preserved (merge with existing profile to keep optional fields)
       if (updated) {
-        const formattedProfile = {
-          ...profile, // Keep existing fields (including optional ones)
-          ...updated, // Overwrite with server response
-          dateOfBirth: updated.dateOfBirth ? formatDateForInput(updated.dateOfBirth) : (profile.dateOfBirth || ''),
+        console.log('Profile after save:', updated);
+        const formattedProfile: ProfileResponse = {
+          ...currentProfile, // Keep existing fields (including optional ones that weren't saved yet)
+          ...updated, // Overwrite with server response (ensures id is set)
+          dateOfBirth: updated.dateOfBirth ? formatDateForInput(updated.dateOfBirth) : (currentProfile.dateOfBirth || ''),
+          // CRITICAL: Ensure id is set so future saves use PATCH instead of POST
+          id: updated.id || currentProfile.id,
         };
+        console.log('Setting profile state with:', formattedProfile);
         setProfile(formattedProfile);
       } else {
         // If update failed but we have existing profile, keep it
@@ -497,9 +571,9 @@ export default function ProfilePage() {
       );
       if (updated) {
         // Format dateOfBirth for date input when photo is updated
-        const formattedProfile = {
+        const formattedProfile: ProfileResponse = {
           ...updated,
-          dateOfBirth: updated.dateOfBirth ? formatDateForInput(updated.dateOfBirth) : profile.dateOfBirth,
+          dateOfBirth: updated.dateOfBirth ? formatDateForInput(updated.dateOfBirth) : (profile.dateOfBirth || ''),
         };
         setProfile(formattedProfile);
       }
