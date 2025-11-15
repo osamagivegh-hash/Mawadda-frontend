@@ -18,10 +18,15 @@ type ProfileResponse = {
   dateOfBirth?: string;
   nationality?: string;
   city?: string;
+  countryOfResidence?: string;
   education?: string;
   occupation?: string;
   religiosityLevel?: string;
+  religion?: string;
   maritalStatus?: string;
+  marriageType?: string;
+  polygamyAcceptance?: string;
+  compatibilityTest?: string;
   about?: string;
   guardianName?: string;
   guardianContact?: string;
@@ -44,10 +49,15 @@ const baseFields: FieldConfig[] = [
   { name: "dateOfBirth", label: "تاريخ الميلاد", type: "date" },
   { name: "nationality", label: "الجنسية" },
   { name: "city", label: "المدينة" },
+  { name: "countryOfResidence", label: "بلد الإقامة" },
   { name: "education", label: "المؤهل الدراسي" },
   { name: "occupation", label: "الوظيفة" },
+  { name: "religion", label: "الديانة" },
   { name: "religiosityLevel", label: "درجة الالتزام" },
   { name: "maritalStatus", label: "الحالة الاجتماعية" },
+  { name: "marriageType", label: "نوع الزواج" },
+  { name: "polygamyAcceptance", label: "تقبل/تقبلين بالتعدد" },
+  { name: "compatibilityTest", label: "إختبار التوافق" },
 ];
 const femaleGuardianFields: FieldConfig[] = [
   { name: "guardianName", label: "اسم ولي الأمر" },
@@ -400,26 +410,165 @@ export default function ProfilePage() {
               </section>
 
               <div className="grid gap-6 md:grid-cols-2">
-                {renderedFields.map((field) => (
-                  <label
-                    key={field.name}
-                    className="flex flex-col gap-2 text-sm text-slate-600"
-                  >
-                    {field.label}
-                    <input
-                      type={field.type ?? "text"}
-                      value={
-                        profile[field.name]
-                          ? String(profile[field.name])
-                          : ""
-                      }
-                      onChange={(event) =>
-                        handleChange(field.name, event.target.value)
-                      }
-                      className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-100"
-                    />
-                  </label>
-                ))}
+                {renderedFields.map((field) => {
+                  const fieldValue = profile[field.name] ? String(profile[field.name]) : "";
+                  
+                  // Handle select fields
+                  if (field.name === "gender") {
+                    return (
+                      <label
+                        key={field.name}
+                        className="flex flex-col gap-2 text-sm text-slate-600"
+                      >
+                        {field.label}
+                        <select
+                          value={fieldValue}
+                          onChange={(event) =>
+                            handleChange(field.name, event.target.value)
+                          }
+                          className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-100"
+                        >
+                          <option value="">اختر الجنس</option>
+                          <option value="male">ذكر</option>
+                          <option value="female">أنثى</option>
+                        </select>
+                      </label>
+                    );
+                  }
+                  
+                  if (field.name === "religion") {
+                    return (
+                      <label
+                        key={field.name}
+                        className="flex flex-col gap-2 text-sm text-slate-600"
+                      >
+                        {field.label}
+                        <select
+                          value={fieldValue}
+                          onChange={(event) =>
+                            handleChange(field.name, event.target.value)
+                          }
+                          className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-100"
+                        >
+                          <option value="">اختر الديانة</option>
+                          <option value="الإسلام">الإسلام</option>
+                          <option value="المسيحية">المسيحية</option>
+                          <option value="أخرى">أخرى</option>
+                        </select>
+                      </label>
+                    );
+                  }
+                  
+                  if (field.name === "marriageType") {
+                    return (
+                      <label
+                        key={field.name}
+                        className="flex flex-col gap-2 text-sm text-slate-600"
+                      >
+                        {field.label}
+                        <select
+                          value={fieldValue}
+                          onChange={(event) =>
+                            handleChange(field.name, event.target.value)
+                          }
+                          className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-100"
+                        >
+                          <option value="">اختر نوع الزواج</option>
+                          <option value="زواج تقليدي">زواج تقليدي</option>
+                          <option value="زواج بشروط خاصة">زواج بشروط خاصة</option>
+                        </select>
+                      </label>
+                    );
+                  }
+                  
+                  if (field.name === "polygamyAcceptance") {
+                    return (
+                      <label
+                        key={field.name}
+                        className="flex flex-col gap-2 text-sm text-slate-600"
+                      >
+                        {field.label}
+                        <select
+                          value={fieldValue}
+                          onChange={(event) =>
+                            handleChange(field.name, event.target.value)
+                          }
+                          className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-100"
+                        >
+                          <option value="">اختر</option>
+                          <option value="اقبل بالتعدد">اقبل بالتعدد</option>
+                          <option value="لا اقبل بالتعدد">لا اقبل بالتعدد</option>
+                        </select>
+                      </label>
+                    );
+                  }
+                  
+                  if (field.name === "compatibilityTest") {
+                    return (
+                      <label
+                        key={field.name}
+                        className="flex flex-col gap-2 text-sm text-slate-600"
+                      >
+                        {field.label}
+                        <select
+                          value={fieldValue}
+                          onChange={(event) =>
+                            handleChange(field.name, event.target.value)
+                          }
+                          className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-100"
+                        >
+                          <option value="">اختر</option>
+                          <option value="نعم">نعم</option>
+                          <option value="لا">لا</option>
+                        </select>
+                      </label>
+                    );
+                  }
+                  
+                  if (field.name === "maritalStatus") {
+                    return (
+                      <label
+                        key={field.name}
+                        className="flex flex-col gap-2 text-sm text-slate-600"
+                      >
+                        {field.label}
+                        <select
+                          value={fieldValue}
+                          onChange={(event) =>
+                            handleChange(field.name, event.target.value)
+                          }
+                          className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-100"
+                        >
+                          <option value="">اختر الحالة الاجتماعية</option>
+                          <option value="أعزب">أعزب</option>
+                          <option value="مطلق - بدون أولاد">مطلق - بدون أولاد</option>
+                          <option value="مطلق - مع أولاد">مطلق - مع أولاد</option>
+                          <option value="منفصل بدون طلاق">منفصل بدون طلاق</option>
+                          <option value="أرمل - بدون أولاد">أرمل - بدون أولاد</option>
+                          <option value="أرمل - مع أولاد">أرمل - مع أولاد</option>
+                        </select>
+                      </label>
+                    );
+                  }
+                  
+                  // Default input field
+                  return (
+                    <label
+                      key={field.name}
+                      className="flex flex-col gap-2 text-sm text-slate-600"
+                    >
+                      {field.label}
+                      <input
+                        type={field.type ?? "text"}
+                        value={fieldValue}
+                        onChange={(event) =>
+                          handleChange(field.name, event.target.value)
+                        }
+                        className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-100"
+                      />
+                    </label>
+                  );
+                })}
               </div>
 
               {/* About Section */}

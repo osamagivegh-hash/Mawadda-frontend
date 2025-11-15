@@ -38,12 +38,18 @@ type SearchResult = {
     gender?: string;
     nationality?: string;
     city?: string;
+    countryOfResidence?: string;
     education?: string;
     occupation?: string;
     maritalStatus?: string;
+    marriageType?: string;
+    polygamyAcceptance?: string;
+    compatibilityTest?: string;
+    religion?: string;
+    religiosityLevel?: string;
     about?: string;
     photoUrl?: string;
-    religiosityLevel?: string;
+    dateOfBirth?: string;
   };
 };
 
@@ -503,12 +509,32 @@ export default function SearchPage() {
                         <p className="text-sm text-slate-500">
                           الجنسية: {result.profile.nationality ?? "غير محدد"}
                         </p>
+                        {result.profile.countryOfResidence && (
+                          <p className="text-sm text-slate-500">
+                            بلد الإقامة: {result.profile.countryOfResidence}
+                          </p>
+                        )}
                         <p className="text-sm text-slate-500">
                           المدينة: {result.profile.city ?? "غير محدد"}
                         </p>
                         <p className="text-sm text-slate-500">
                           الحالة الاجتماعية: {result.profile.maritalStatus ?? "غير محدد"}
                         </p>
+                        {result.profile.marriageType && (
+                          <p className="text-sm text-slate-500">
+                            نوع الزواج: {result.profile.marriageType}
+                          </p>
+                        )}
+                        {(result.profile.religion || result.profile.religiosityLevel) && (
+                          <p className="text-sm text-slate-500">
+                            الديانة: {result.profile.religion || result.profile.religiosityLevel || "غير محدد"}
+                          </p>
+                        )}
+                        {result.profile.education && (
+                          <p className="text-sm text-slate-500">
+                            التعليم: {result.profile.education}
+                          </p>
+                        )}
                       </div>
                       {result.profile.photoUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
