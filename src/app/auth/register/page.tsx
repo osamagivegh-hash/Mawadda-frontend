@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { register as registerRequest } from "@/lib/api";
 
@@ -12,7 +11,6 @@ const roles = [
 ];
 
 export default function RegisterPage() {
-  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<{ memberId?: string } | null>(null);
@@ -36,20 +34,30 @@ export default function RegisterPage() {
         user?: Record<string, unknown> & { memberId?: string };
       };
       const token = result.token;
-      if (token) {
+      if (token && result.user) {
+        // Store auth in localStorage
         window.localStorage.setItem("mawaddahToken", token);
-      }
-      if (result.user) {
         window.localStorage.setItem(
           "mawaddahUser",
           JSON.stringify(result.user),
         );
+        
+        // Dispatch storage event so dashboard can detect auth change (same-tab workaround)
+        // Storage events normally only fire for other tabs, so we dispatch manually
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new Event("storage"));
+        }
+        
         // Show success message with member ID
         setSuccess({ memberId: result.user.memberId });
-        // Redirect after showing success message
+        
+        // Redirect after showing success message using window.location.href for full page reload
+        // This ensures auth is properly read on the dashboard (same approach as login)
         setTimeout(() => {
-          router.push("/dashboard");
+          window.location.href = "/dashboard";
         }, 3000);
+      } else {
+        throw new Error("لم يتم استلام بيانات المصادقة من الخادم. يرجى المحاولة مرة أخرى.");
       }
     } catch (err) {
       console.error("Registration error:", err);
@@ -164,7 +172,7 @@ export default function RegisterPage() {
             ) : null}
             <button
               type="submit"
-              disabled={loading || success}
+              disabled={loading || !!success}
               className="w-full rounded-full bg-accent-600 px-6 py-3 text-sm font-medium text-white transition-all hover:bg-accent-700 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-70"
             >
               {loading ? "جاري إنشاء الحساب..." : success ? "تم التسجيل بنجاح!" : "🚀 تأكيد التسجيل"}
