@@ -38,6 +38,7 @@ type SearchResult = {
     firstName?: string;
     lastName?: string;
     gender?: string;
+    age?: number;
     nationality?: string;
     city?: string;
     countryOfResidence?: string;
@@ -108,11 +109,35 @@ export default function SearchPage() {
       
       const activeFilters = customFilters ?? filters;
       
+      // Validate required fields
+      if (!activeFilters.gender || activeFilters.gender.trim().length === 0) {
+        setError("يجب اختيار الجنس للبحث");
+        setLoading(false);
+        return;
+      }
+
+      const minAgeValue = activeFilters.minAge ? parseInt(activeFilters.minAge) : undefined;
+      const maxAgeValue = activeFilters.maxAge ? parseInt(activeFilters.maxAge) : undefined;
+
+      if (!minAgeValue && !maxAgeValue) {
+        setError("يجب إدخال العمر (من أو إلى) للبحث");
+        setLoading(false);
+        return;
+      }
+
       // Validate age range if both are provided
-      if (activeFilters.minAge && activeFilters.maxAge) {
-        const minAge = parseInt(activeFilters.minAge);
-        const maxAge = parseInt(activeFilters.maxAge);
-        if (!isNaN(minAge) && !isNaN(maxAge) && minAge > maxAge) {
+      if (minAgeValue !== undefined && maxAgeValue !== undefined) {
+        if (isNaN(minAgeValue) || isNaN(maxAgeValue)) {
+          setError("يجب إدخال أرقام صحيحة للعمر");
+          setLoading(false);
+          return;
+        }
+        if (minAgeValue < 18 || minAgeValue > 80 || maxAgeValue < 18 || maxAgeValue > 80) {
+          setError("يجب أن يكون العمر بين 18 و 80 سنة");
+          setLoading(false);
+          return;
+        }
+        if (minAgeValue > maxAgeValue) {
           setError("العمر الأدنى لا يمكن أن يكون أكبر من العمر الأقصى");
           setLoading(false);
           return;
@@ -126,40 +151,64 @@ export default function SearchPage() {
       try {
         console.log("Active filters before processing:", activeFilters);
         
-        // Build query parameters
+        // Build query parameters - only include defined values
         const queryParams = new URLSearchParams();
         
-        // Add all filters that have values
-        Object.entries(activeFilters).forEach(([key, value]) => {
-          if (!value) return;
-          
-          const stringValue = String(value).trim();
-          if (stringValue.length === 0) return;
-          if (stringValue.toLowerCase() === "all") return;
-          
-          // Handle special cases
-          if (key === "minAge" || key === "maxAge") {
-            const ageValue = parseInt(stringValue);
-            if (!isNaN(ageValue) && ageValue >= 18 && ageValue <= 80) {
-              queryParams.append(key, String(ageValue));
-            }
-            return;
+        // Add required fields
+        if (activeFilters.gender) {
+          queryParams.append('gender', activeFilters.gender.trim());
+        }
+        
+        if (minAgeValue !== undefined && !isNaN(minAgeValue)) {
+          queryParams.append('minAge', String(minAgeValue));
+        }
+        
+        if (maxAgeValue !== undefined && !isNaN(maxAgeValue)) {
+          queryParams.append('maxAge', String(maxAgeValue));
+        }
+        
+        // Add optional fields only if they have valid values
+        if (activeFilters.city && activeFilters.city.trim().length > 0 && activeFilters.city.trim().toLowerCase() !== 'all') {
+          queryParams.append('city', activeFilters.city.trim());
+        }
+        
+        if (activeFilters.nationality && activeFilters.nationality.trim().length > 0 && activeFilters.nationality.trim().toLowerCase() !== 'all') {
+          queryParams.append('nationality', activeFilters.nationality.trim());
+        }
+        
+        if (activeFilters.education && activeFilters.education.trim().length > 0 && activeFilters.education.trim().toLowerCase() !== 'all') {
+          queryParams.append('education', activeFilters.education.trim());
+        }
+        
+        if (activeFilters.maritalStatus && activeFilters.maritalStatus.trim().length > 0 && activeFilters.maritalStatus.trim().toLowerCase() !== 'all') {
+          queryParams.append('maritalStatus', activeFilters.maritalStatus.trim());
+        }
+        
+        if (activeFilters.countryOfResidence && activeFilters.countryOfResidence.trim().length > 0 && activeFilters.countryOfResidence.trim().toLowerCase() !== 'all') {
+          queryParams.append('countryOfResidence', activeFilters.countryOfResidence.trim());
+        }
+        
+        if (activeFilters.height && activeFilters.height.trim().length > 0) {
+          const heightValue = parseInt(activeFilters.height);
+          if (!isNaN(heightValue) && heightValue >= 100 && heightValue <= 250) {
+            queryParams.append('height', String(heightValue));
           }
-          
-          if (key === "height") {
-            const heightValue = parseInt(stringValue);
-            if (!isNaN(heightValue) && heightValue >= 100 && heightValue <= 250) {
-              queryParams.append(key, String(heightValue));
-            }
-            return;
-          }
-          
-          // Add other filters
-          queryParams.append(key, stringValue);
-        });
+        }
+        
+        if (activeFilters.hasPhoto === 'true') {
+          queryParams.append('hasPhoto', 'true');
+        }
+        
+        if (activeFilters.keyword && activeFilters.keyword.trim().length > 0) {
+          queryParams.append('keyword', activeFilters.keyword.trim());
+        }
+        
+        if (activeFilters.memberId && activeFilters.memberId.trim().length > 0) {
+          queryParams.append('memberId', activeFilters.memberId.trim());
+        }
         
         const queryString = queryParams.toString();
-        const endpoint = queryString ? `/search?${queryString}` : "/search";
+        const endpoint = `/search?${queryString}`;
         
         console.log("Search endpoint:", endpoint);
         console.log("Query params:", Object.fromEntries(queryParams.entries()));
@@ -204,6 +253,17 @@ export default function SearchPage() {
     return null;
   }
 
+  // Helper function to check if required fields are filled
+  const isSearchButtonEnabled = (): boolean => {
+    const hasGender = Boolean(filters.gender && filters.gender.trim().length > 0);
+    const minAgeValue = filters.minAge ? parseInt(filters.minAge) : undefined;
+    const maxAgeValue = filters.maxAge ? parseInt(filters.maxAge) : undefined;
+    const hasAge = (minAgeValue !== undefined && !isNaN(minAgeValue)) || 
+                   (maxAgeValue !== undefined && !isNaN(maxAgeValue));
+    
+    return hasGender && hasAge && !loading;
+  };
+
   const updateFilter = (name: keyof SearchFilters, value: string) => {
     setFilters((prev) => ({
       ...prev,
@@ -213,11 +273,28 @@ export default function SearchPage() {
 
   const clearFilters = () => {
     setFilters(initialFilters);
-    void handleSearch(initialFilters);
+    setError(null);
+    setFeedback(null);
+    setResults([]);
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    
+    // Validate required fields before submitting
+    if (!filters.gender || filters.gender.trim().length === 0) {
+      setError("يجب اختيار الجنس للبحث");
+      return;
+    }
+
+    const minAgeValue = filters.minAge ? parseInt(filters.minAge) : undefined;
+    const maxAgeValue = filters.maxAge ? parseInt(filters.maxAge) : undefined;
+
+    if (!minAgeValue && !maxAgeValue) {
+      setError("يجب إدخال العمر (من أو إلى) للبحث");
+      return;
+    }
+
     await handleSearch();
   };
 
@@ -500,12 +577,24 @@ export default function SearchPage() {
 
           {/* زر البحث */}
           <div className="mt-6">
+            {!isSearchButtonEnabled() && !loading && (
+              <p className="mb-2 text-sm text-amber-600 text-center">
+                ⚠️ يجب اختيار الجنس وإدخال العمر للبحث
+              </p>
+            )}
             <button
               type="submit"
-              disabled={loading}
-              className="w-full rounded-lg bg-red-600 px-6 py-3 text-base font-medium text-white transition-all hover:bg-red-700 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-70"
+              disabled={!isSearchButtonEnabled()}
+              className="w-full rounded-lg bg-red-600 px-6 py-3 text-base font-medium text-white transition-all hover:bg-red-700 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-slate-400"
             >
-              {loading ? "جارٍ البحث..." : "بحث في البيانات"}
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                  جارٍ البحث...
+                </span>
+              ) : (
+                "بحث في البيانات"
+              )}
             </button>
           </div>
 
@@ -592,6 +681,16 @@ export default function SearchPage() {
                           رقم العضوية:
                           <span className="font-medium text-accent-600"> {result.user.memberId}</span>
                         </p>
+                        {result.profile.age && (
+                          <p className="text-sm text-slate-500">
+                            العمر: <span className="font-medium">{result.profile.age} سنة</span>
+                          </p>
+                        )}
+                        {result.profile.gender && (
+                          <p className="text-sm text-slate-500">
+                            الجنس: <span className="font-medium">{result.profile.gender === 'female' ? 'أنثى' : result.profile.gender === 'male' ? 'ذكر' : result.profile.gender}</span>
+                          </p>
+                        )}
                         <p className="text-sm text-slate-500">
                           الجنسية: {result.profile.nationality ?? "غير محدد"}
                         </p>
