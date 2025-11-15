@@ -42,6 +42,18 @@ type FieldConfig = {
   type?: string;
 };
 
+// Required fields matching backend CreateProfileDto
+const requiredFields: Set<keyof ProfileResponse> = new Set([
+  "gender",
+  "dateOfBirth",
+  "city",
+  "nationality",
+  "maritalStatus",
+  "education",
+  "occupation",
+  "religiosityLevel",
+]);
+
 const baseFields: FieldConfig[] = [
   { name: "firstName", label: "الاسم الأول" },
   { name: "lastName", label: "الاسم الأخير" },
@@ -114,22 +126,124 @@ export default function ProfilePage() {
       router.push("/auth/login");
       return;
     }
+    
+    // Validate required fields (matching backend CreateProfileDto)
+    const requiredFields = [
+      { name: 'gender', label: 'الجنس' },
+      { name: 'dateOfBirth', label: 'تاريخ الميلاد' },
+      { name: 'city', label: 'المدينة' },
+      { name: 'nationality', label: 'الجنسية' },
+      { name: 'maritalStatus', label: 'الحالة الاجتماعية' },
+      { name: 'education', label: 'المؤهل الدراسي' },
+      { name: 'occupation', label: 'الوظيفة' },
+      { name: 'religiosityLevel', label: 'درجة الالتزام' },
+    ];
+
+    const missingFields = requiredFields.filter(
+      field => {
+        const value = profile[field.name as keyof ProfileResponse];
+        return !value || String(value).trim() === '';
+      }
+    );
+
+    if (missingFields.length > 0) {
+      const missingLabels = missingFields.map(f => f.label).join('، ');
+      setError(`يجب ملء الحقول التالية (مطلوبة): ${missingLabels}`);
+      setSuccess(null);
+      return;
+    }
+
+    // Validate gender value (must be "male" or "female")
+    if (profile.gender && profile.gender !== 'male' && profile.gender !== 'female') {
+      setError('الجنس يجب أن يكون "male" أو "female" (ذكر أو أنثى)');
+      setSuccess(null);
+      return;
+    }
+
+    // Type guard for accessing profile fields
+    const getFieldValue = (fieldName: keyof ProfileResponse): string => {
+      const value = profile[fieldName];
+      return value ? String(value) : '';
+    };
+
+    // Validate dateOfBirth format (must be valid ISO date string)
+    if (profile.dateOfBirth) {
+      const dateValue = new Date(profile.dateOfBirth);
+      if (isNaN(dateValue.getTime())) {
+        setError('تاريخ الميلاد غير صحيح. يرجى إدخال تاريخ صحيح');
+        setSuccess(null);
+        return;
+      }
+      // Ensure it's in ISO format (YYYY-MM-DD)
+      const isoDate = dateValue.toISOString().split('T')[0];
+      profile.dateOfBirth = isoDate;
+    }
+
+    // Validate about field if provided (min 2 characters)
+    if (profile.about && profile.about.trim().length < 2) {
+      setError('النبذة التعريفية يجب أن تكون على الأقل حرفين');
+      setSuccess(null);
+      return;
+    }
+
     setSaving(true);
     setError(null);
     setSuccess(null);
+    
     try {
-      const updated = await fetchWithToken<ProfileResponse>(
-        `/profiles/${auth.user.id}`,
-        auth.token,
-        {
-          method: "PATCH",
-          body: JSON.stringify(profile),
-        },
-      );
+      // Determine if profile exists (check if we have an id or required fields already filled)
+      const profileExists = !!profile.id;
+      
+      // Prepare payload - trim all string values (matching backend TrimPipe)
+      const payload: Record<string, any> = {};
+      Object.entries(profile).forEach(([key, value]) => {
+        if (value !== null && value !== undefined) {
+          payload[key] = typeof value === 'string' ? value.trim() : value;
+        }
+      });
+
+      let updated: ProfileResponse;
+      
+      if (profileExists) {
+        // Update existing profile
+        updated = await fetchWithToken<ProfileResponse>(
+          `/profiles/${auth.user.id}`,
+          auth.token,
+          {
+            method: "PATCH",
+            body: JSON.stringify(payload),
+          },
+        );
+        setSuccess("تم تحديث البيانات بنجاح.");
+      } else {
+        // Create new profile (POST to /profiles with required fields)
+        updated = await fetchWithToken<ProfileResponse>(
+          `/profiles`,
+          auth.token,
+          {
+            method: "POST",
+            body: JSON.stringify(payload),
+          },
+        );
+        setSuccess("تم إنشاء الملف الشخصي بنجاح.");
+      }
+      
       setProfile(updated ?? {});
-      setSuccess("تم حفظ التعديلات بنجاح.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "حدث خطأ غير متوقع");
+      const errorMessage = err instanceof Error ? err.message : "حدث خطأ غير متوقع";
+      
+      // Handle common backend errors
+      if (errorMessage.includes("already exists")) {
+        setError("الملف الشخصي موجود بالفعل. يرجى استخدام تحديث البيانات.");
+      } else if (errorMessage.includes("required") || errorMessage.includes("مطلوب")) {
+        setError(errorMessage);
+      } else if (errorMessage.includes("gender must be")) {
+        setError('الجنس يجب أن يكون "male" أو "female"');
+      } else if (errorMessage.includes("dateOfBirth")) {
+        setError('تاريخ الميلاد يجب أن يكون بصيغة ISO صحيحة (YYYY-MM-DD)');
+      } else {
+        setError(`خطأ في الحفظ: ${errorMessage}`);
+      }
     } finally {
       setSaving(false);
     }
@@ -359,6 +473,12 @@ export default function ProfilePage() {
             </div>
           ) : (
             <form ref={formRef} onSubmit={handleSubmit} className="mt-8 space-y-8">
+              {/* Required Fields Notice */}
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                <p className="font-medium mb-1">ملاحظة:</p>
+                <p>الحقول المميزة بعلامة <span className="text-rose-600 font-bold">*</span> مطلوبة ولا يمكن تركها فارغة. يجب ملء جميع الحقول المطلوبة لإنشاء أو تحديث الملف الشخصي.</p>
+              </div>
+
               <section className="flex flex-col gap-6 md:flex-row md:items-center">
                 <div className="relative h-32 w-32 overflow-hidden rounded-3xl border border-slate-200 bg-slate-100">
                   {resolvedPhotoUrl ? (
@@ -412,6 +532,7 @@ export default function ProfilePage() {
               <div className="grid gap-6 md:grid-cols-2">
                 {renderedFields.map((field) => {
                   const fieldValue = profile[field.name] ? String(profile[field.name]) : "";
+                  const isRequired = requiredFields.has(field.name);
                   
                   // Handle select fields
                   if (field.name === "gender") {
@@ -420,13 +541,21 @@ export default function ProfilePage() {
                         key={field.name}
                         className="flex flex-col gap-2 text-sm text-slate-600"
                       >
-                        {field.label}
+                        <span className="flex items-center gap-1">
+                          {field.label}
+                          {isRequired && <span className="text-rose-500">*</span>}
+                        </span>
                         <select
                           value={fieldValue}
                           onChange={(event) =>
                             handleChange(field.name, event.target.value)
                           }
-                          className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-100"
+                          className={`rounded-xl border ${
+                            isRequired && !fieldValue
+                              ? 'border-rose-300 bg-rose-50'
+                              : 'border-slate-200 bg-slate-50'
+                          } px-4 py-3 text-slate-900 focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-100`}
+                          required={isRequired}
                         >
                           <option value="">اختر الجنس</option>
                           <option value="male">ذكر</option>
@@ -442,13 +571,21 @@ export default function ProfilePage() {
                         key={field.name}
                         className="flex flex-col gap-2 text-sm text-slate-600"
                       >
-                        {field.label}
+                        <span className="flex items-center gap-1">
+                          {field.label}
+                          {isRequired && <span className="text-rose-500">*</span>}
+                        </span>
                         <select
                           value={fieldValue}
                           onChange={(event) =>
                             handleChange(field.name, event.target.value)
                           }
-                          className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-100"
+                          className={`rounded-xl border ${
+                            isRequired && !fieldValue
+                              ? 'border-rose-300 bg-rose-50'
+                              : 'border-slate-200 bg-slate-50'
+                          } px-4 py-3 text-slate-900 focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-100`}
+                          required={isRequired}
                         >
                           <option value="">اختر الديانة</option>
                           <option value="الإسلام">الإسلام</option>
@@ -531,13 +668,21 @@ export default function ProfilePage() {
                         key={field.name}
                         className="flex flex-col gap-2 text-sm text-slate-600"
                       >
-                        {field.label}
+                        <span className="flex items-center gap-1">
+                          {field.label}
+                          {isRequired && <span className="text-rose-500">*</span>}
+                        </span>
                         <select
                           value={fieldValue}
                           onChange={(event) =>
                             handleChange(field.name, event.target.value)
                           }
-                          className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-100"
+                          className={`rounded-xl border ${
+                            isRequired && !fieldValue
+                              ? 'border-rose-300 bg-rose-50'
+                              : 'border-slate-200 bg-slate-50'
+                          } px-4 py-3 text-slate-900 focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-100`}
+                          required={isRequired}
                         >
                           <option value="">اختر الحالة الاجتماعية</option>
                           <option value="أعزب">أعزب</option>
@@ -557,14 +702,22 @@ export default function ProfilePage() {
                       key={field.name}
                       className="flex flex-col gap-2 text-sm text-slate-600"
                     >
-                      {field.label}
+                      <span className="flex items-center gap-1">
+                        {field.label}
+                        {isRequired && <span className="text-rose-500">*</span>}
+                      </span>
                       <input
                         type={field.type ?? "text"}
                         value={fieldValue}
                         onChange={(event) =>
                           handleChange(field.name, event.target.value)
                         }
-                        className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-100"
+                        className={`rounded-xl border ${
+                          isRequired && !fieldValue
+                            ? 'border-rose-300 bg-rose-50'
+                            : 'border-slate-200 bg-slate-50'
+                        } px-4 py-3 text-slate-900 focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-100`}
+                        required={isRequired}
                       />
                     </label>
                   );
