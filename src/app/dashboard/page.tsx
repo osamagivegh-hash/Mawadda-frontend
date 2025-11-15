@@ -13,7 +13,44 @@ import {
 import {
   clearStoredAuth,
   getStoredAuth,
+  type StoredAuth,
 } from "@/lib/auth";
+
+type SummaryResponse = {
+  profileCompletion: number;
+  profileChecklist: { key: string; label: string; completed: boolean }[];
+  stats: {
+    matches: { total: number; pending: number; approved: number; declined: number };
+    consultations: { total: number; upcoming: number };
+    favorites: number;
+  };
+  membership: {
+    planId: string;
+    expiresAt: string | null;
+    planDetails: {
+      id: string;
+      name: string;
+      subtitle?: string;
+      description: string;
+      price: number;
+      currency: string;
+      durationDays: number | null;
+      features: string[];
+      highlight?: string;
+    };
+  };
+};
+
+type ConsultantHighlight = {
+  _id: string;
+  name: string;
+  title?: string;
+  specialization?: string;
+  bio?: string;
+  avatarUrl?: string;
+  rating?: number;
+  yearsExperience?: number;
+};
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -22,17 +59,17 @@ export default function DashboardPage() {
   // 1) AUTH STATE (محسّنة)
   // ============================
   const [authLoaded, setAuthLoaded] = useState(false); // لتحديد وقت اكتمال قراءة localStorage
-  const [auth, setAuth] = useState(null);
+  const [auth, setAuth] = useState<StoredAuth | null>(null);
   const token = auth?.token ?? null;
 
   // ============================
   // 2) DATA STATES (يجب أن تكون قبل أي return)
   // ============================
-  const [summary, setSummary] = useState(null);
-  const [consultants, setConsultants] = useState([]);
+  const [summary, setSummary] = useState<SummaryResponse | null>(null);
+  const [consultants, setConsultants] = useState<ConsultantHighlight[]>([]);
   const [favoritesCount, setFavoritesCount] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   // قراءة التوكن فور تحميل الصفحة فقط
   useEffect(() => {
@@ -54,6 +91,57 @@ export default function DashboardPage() {
     }
   }, [authLoaded, token, router]);
 
+  // ============================
+  // 3) LOAD DASHBOARD DATA (يجب أن يكون قبل أي return)
+  // ============================
+  useEffect(() => {
+    if (!token) return;
+    
+    const load = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const [summaryRes, consultantsRes, favoritesRes] = await Promise.all([
+          getDashboardSummary(token),
+          getConsultantHighlight(token, 3),
+          getFavorites(token),
+        ]);
+
+        setSummary(summaryRes as SummaryResponse);
+        setConsultants(Array.isArray(consultantsRes) ? (consultantsRes as ConsultantHighlight[]) : []);
+        setFavoritesCount(Array.isArray(favoritesRes) ? favoritesRes.length : 0);
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "حدث خطأ أثناء تحميل البيانات."
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    load();
+  }, [token]);
+
+  // ============================
+  // 4) QUICK LINKS (يجب أن يكون قبل أي return)
+  // ============================
+  const quickLinks = useMemo(
+    () => [
+      { href: "/", label: "الرئيسية" },
+      { href: "/search", label: "ابحث عن شريك" },
+      { href: "/exams", label: "الاختبارات" },
+      { href: "/services", label: "خدماتنا" },
+      { href: "/contact", label: "تواصل معنا" },
+    ],
+    []
+  );
+
+  // ============================
+  // 5) EARLY RETURNS (بعد جميع الـ hooks)
+  // ============================
   // إذا لم يتم تحميل auth بعد → لا نعرض أي شيء
   if (!authLoaded) {
     return (
@@ -69,53 +157,7 @@ export default function DashboardPage() {
   }
 
   // ============================
-  // 3) LOAD DASHBOARD DATA
-  // ============================
-  useEffect(() => {
-    const load = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        const [summaryRes, consultantsRes, favoritesRes] = await Promise.all([
-          getDashboardSummary(token),
-          getConsultantHighlight(token, 3),
-          getFavorites(token),
-        ]);
-
-        setSummary(summaryRes);
-        setConsultants(consultantsRes ?? []);
-        setFavoritesCount(Array.isArray(favoritesRes) ? favoritesRes.length : 0);
-      } catch (err) {
-        setError(
-          err instanceof Error
-            ? err.message
-            : "حدث خطأ أثناء تحميل البيانات."
-        );
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (token) load();
-  }, [token]);
-
-  // ============================
-  // 4) QUICK LINKS
-  // ============================
-  const quickLinks = useMemo(
-    () => [
-      { href: "/", label: "الرئيسية" },
-      { href: "/search", label: "ابحث عن شريك" },
-      { href: "/exams", label: "الاختبارات" },
-      { href: "/services", label: "خدماتنا" },
-      { href: "/contact", label: "تواصل معنا" },
-    ],
-    []
-  );
-
-  // ============================
-  // 5) SUMMARY CARDS
+  // 6) SUMMARY CARDS
   // ============================
   const summaryCards = [
     {
@@ -147,7 +189,7 @@ export default function DashboardPage() {
   const displayName = auth?.user?.email ?? "عضو مَوَدّة";
 
   // ============================
-  // 6) RETURN UI
+  // 7) RETURN UI
   // ============================
   return (
     <div className="min-h-screen bg-slate-50 pb-16">
