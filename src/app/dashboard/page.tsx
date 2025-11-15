@@ -3,73 +3,106 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+
 import {
   getConsultantHighlight,
   getDashboardSummary,
   getFavorites,
 } from "@/lib/api";
-import { clearStoredAuth, getStoredAuth } from "@/lib/auth";
 
-type SummaryResponse = {
-  profileCompletion: number;
-  profileChecklist: { key: string; label: string; completed: boolean }[];
-  stats: {
-    matches: { total: number; pending: number; approved: number; declined: number };
-    consultations: { total: number; upcoming: number };
-    favorites: number;
-  };
-  membership: {
-    planId: string;
-    expiresAt: string | null;
-    planDetails: {
-      id: string;
-      name: string;
-      subtitle?: string;
-      description: string;
-      price: number;
-      currency: string;
-      durationDays: number | null;
-      features: string[];
-      highlight?: string;
-    };
-  };
-};
-
-type ConsultantHighlight = {
-  _id: string;
-  name: string;
-  title?: string;
-  specialization?: string;
-  bio?: string;
-  avatarUrl?: string;
-  rating?: number;
-  yearsExperience?: number;
-};
+import {
+  clearStoredAuth,
+  getStoredAuth,
+} from "@/lib/auth";
 
 export default function DashboardPage() {
   const router = useRouter();
-  // Read auth fresh from localStorage on each render to ensure we have the latest token
-  // This prevents stale auth data after logout/login cycles
-  const [storedAuth, setStoredAuth] = useState<ReturnType<typeof getStoredAuth>>(null);
-  const token = storedAuth?.token ?? null;
-  const [summary, setSummary] = useState<SummaryResponse | null>(null);
-  const [consultants, setConsultants] = useState<ConsultantHighlight[]>([]);
-  const [favoritesCount, setFavoritesCount] = useState<number>(0);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  // Read auth on mount and when storage changes (e.g., after login/logout)
+  // ============================
+  // 1) AUTH STATE (محسّنة)
+  // ============================
+  const [authLoaded, setAuthLoaded] = useState(false); // لتحديد وقت اكتمال قراءة localStorage
+  const [auth, setAuth] = useState(null);
+  const token = auth?.token ?? null;
+
+  // قراءة التوكن فور تحميل الصفحة فقط
   useEffect(() => {
-    const updateAuth = () => {
-      setStoredAuth(getStoredAuth());
-    };
-    updateAuth();
-    
-    // Listen for storage events (e.g., when auth changes in another tab or after login)
-    window.addEventListener("storage", updateAuth);
-    return () => window.removeEventListener("storage", updateAuth);
+    const stored = getStoredAuth();
+    setAuth(stored);
+    setAuthLoaded(true);
+
+    // التحديث إذا تغيّر auth من Tab آخر
+    const sync = () => setAuth(getStoredAuth());
+    window.addEventListener("storage", sync);
+    return () => window.removeEventListener("storage", sync);
   }, []);
 
+  // حماية الصفحة – لكن فقط بعد اكتمال التحميل
+  useEffect(() => {
+    if (!authLoaded) return;
+    if (!token) {
+      router.replace("/auth/login");
+    }
+  }, [authLoaded, token, router]);
+
+  // إذا لم يتم تحميل auth بعد → لا نعرض أي شيء
+  if (!authLoaded) {
+    return (
+      <div className="w-full h-screen flex items-center justify-center text-secondary-600">
+        جاري التحميل...
+      </div>
+    );
+  }
+
+  // إذا authLoaded == true لكن token غير موجود → إعادة التوجيه ستعمل بالأعلى
+  if (!token) {
+    return null;
+  }
+
+  // ============================
+  // 2) DATA STATES
+  // ============================
+  const [summary, setSummary] = useState(null);
+  const [consultants, setConsultants] = useState([]);
+  const [favoritesCount, setFavoritesCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // ============================
+  // 3) LOAD DASHBOARD DATA
+  // ============================
+  useEffect(() => {
+    const load = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const [summaryRes, consultantsRes, favoritesRes] = await Promise.all([
+          getDashboardSummary(token),
+          getConsultantHighlight(token, 3),
+          getFavorites(token),
+        ]);
+
+        setSummary(summaryRes);
+        setConsultants(consultantsRes ?? []);
+        setFavoritesCount(Array.isArray(favoritesRes) ? favoritesRes.length : 0);
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "حدث خطأ أثناء تحميل البيانات."
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (token) load();
+  }, [token]);
+
+  // ============================
+  // 4) QUICK LINKS
+  // ============================
   const quickLinks = useMemo(
     () => [
       { href: "/", label: "الرئيسية" },
@@ -78,68 +111,12 @@ export default function DashboardPage() {
       { href: "/services", label: "خدماتنا" },
       { href: "/contact", label: "تواصل معنا" },
     ],
-    [],
+    []
   );
 
-  const actionButtons = useMemo(
-    () => [
-      {
-        label: "إدارة طلبات التوافق",
-        description: "اطلع على الطلبات المرسلة والمستلمة وحدد قرارك.",
-        href: "/matches",
-      },
-      {
-        label: "جدولة جلسة رؤية",
-        description: "رتب موعدك القادم مع المستشارين المعتمدين.",
-        href: "/consultations",
-      },
-      {
-        label: "إضافة مرشح للمفضلة",
-        description: "احتفظ بالأعضاء المميزين للرجوع لهم بسرعة.",
-        href: "/favorites",
-      },
-    ],
-    [],
-  );
-
-  useEffect(() => {
-    if (!token) {
-      router.push("/auth/login");
-      return;
-    }
-
-    // Reset state before loading to ensure fresh data
-    setLoading(true);
-    setError(null);
-    setSummary(null);
-    setConsultants([]);
-    setFavoritesCount(0);
-
-    const load = async () => {
-      try {
-        // Fetch all data with fresh requests (no cache due to cache: "no-store" in fetchWithToken)
-        const [summaryRes, consultantsRes, favoritesRes] = await Promise.all([
-          getDashboardSummary(token),
-          getConsultantHighlight(token, 3),
-          getFavorites(token),
-        ]);
-        setSummary(summaryRes as SummaryResponse);
-        setConsultants((consultantsRes as ConsultantHighlight[]) ?? []);
-        setFavoritesCount(Array.isArray(favoritesRes) ? favoritesRes.length : 0);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "حدث خطأ غير متوقع");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    void load();
-  }, [token, router]);
-
-  if (!token) {
-    return null;
-  }
-
+  // ============================
+  // 5) SUMMARY CARDS
+  // ============================
   const summaryCards = [
     {
       title: "إكتمال ملفك",
@@ -167,10 +144,15 @@ export default function DashboardPage() {
     },
   ];
 
-  const displayName = storedAuth?.user.email ?? "عضو مَوَدّة";
+  const displayName = auth?.user?.email ?? "عضو مَوَدّة";
 
+  // ============================
+  // 6) RETURN UI
+  // ============================
   return (
     <div className="min-h-screen bg-slate-50 pb-16">
+
+      {/* HEADER */}
       <header className="sticky top-0 z-50 border-b border-rose-100 bg-white/95 backdrop-blur">
         <div className="section-container flex flex-wrap items-center justify-between gap-4 py-4">
           <div className="flex items-center gap-3">
@@ -189,6 +171,8 @@ export default function DashboardPage() {
                 </span>
               </span>
             </Link>
+
+            {/* LINKS */}
             <nav className="flex flex-wrap items-center gap-3 text-sm text-slate-600">
               {quickLinks.map((link) => (
                 <Link
@@ -202,13 +186,13 @@ export default function DashboardPage() {
               ))}
             </nav>
           </div>
+
+          {/* LOGOUT */}
           <button
             type="button"
             onClick={() => {
               clearStoredAuth();
-              if (typeof window !== "undefined") {
-                window.dispatchEvent(new Event("storage"));
-              }
+              window.dispatchEvent(new Event("storage"));
               router.push("/");
             }}
             className="rounded-full bg-gradient-to-r from-rose-500 to-secondary-500 px-5 py-2 text-sm font-medium text-white shadow-sm transition hover:opacity-90"
@@ -218,20 +202,37 @@ export default function DashboardPage() {
         </div>
       </header>
 
+      {/* HERO */}
       <section className="relative overflow-hidden bg-gradient-to-b from-secondary-600 via-secondary-500 to-rose-400 pb-16 pt-12 text-white">
         <div className="section-container relative z-10 space-y-8">
           <div className="max-w-2xl space-y-3">
             <p className="text-sm text-white/80">مرحباً من جديد</p>
             <h1 className="text-3xl font-bold">لوحتك الرئيسية، {displayName}</h1>
             <p className="text-sm leading-7 text-white/75">
-              تابع مؤشرات التقدم، اكتشف الخدمات المخصصة لك، وأكمل رحلتك نحو تعارف ناجح بخطوات واضحة وبسيطة.
+              تابع مؤشرات التقدم، واكتشف الخدمات المخصصة لك.
             </p>
           </div>
 
           <div className="grid gap-4 md:grid-cols-3">
-            {actionButtons.map((action) => (
+            {[
+              {
+                label: "إدارة طلبات التوافق",
+                description: "اطلع على الطلبات المرسلة والمستلمة.",
+                href: "/matches",
+              },
+              {
+                label: "جدولة جلسة رؤية",
+                description: "حدد موعد جلستك القادمة.",
+                href: "/consultations",
+              },
+              {
+                label: "إدارة المفضلة",
+                description: "احتفظ بالأعضاء المميزين.",
+                href: "/favorites",
+              },
+            ].map((action) => (
               <Link
-                key={action.label}
+                key={action.href}
                 href={action.href}
                 className="flex flex-col gap-2 rounded-2xl bg-white/15 px-6 py-5 text-right shadow-lg transition hover:bg-white/25"
               >
@@ -245,11 +246,16 @@ export default function DashboardPage() {
         <div className="absolute inset-0 bg-[url('/patterns/hero-shape.svg')] bg-cover bg-center opacity-10" />
       </section>
 
+      {/* DASHBOARD CONTENT */}
       <div className="section-container -mt-12 space-y-10">
-        {error ? (
-          <p className="rounded-3xl bg-rose-50 px-6 py-4 text-sm text-rose-600">{error}</p>
-        ) : null}
 
+        {error && (
+          <div className="rounded-3xl bg-rose-50 px-6 py-4 text-sm text-rose-600">
+            {error}
+          </div>
+        )}
+
+        {/* SUMMARY CARDS */}
         <div className="rounded-3xl border border-white/60 bg-white p-6 shadow-xl md:p-8">
           <div className="grid gap-6 lg:grid-cols-3">
             {summaryCards.map((card) => (
@@ -257,13 +263,17 @@ export default function DashboardPage() {
                 key={card.title}
                 className="rounded-3xl border border-slate-100 bg-slate-50 p-6 shadow-sm transition hover:-translate-y-1"
               >
-                <div className={`inline-flex w-max items-center justify-center rounded-full bg-gradient-to-br ${card.color} px-4 py-2 text-xs font-semibold text-white`}>
+                <div
+                  className={`inline-flex w-max items-center justify-center rounded-full bg-gradient-to-br ${card.color} px-4 py-2 text-xs font-semibold text-white`}
+                >
                   {card.title}
                 </div>
+
                 <div className="mt-5 text-3xl font-bold text-slate-900">
                   {card.value}
                 </div>
                 <p className="mt-2 text-sm text-slate-600">{card.description}</p>
+
                 <Link
                   href={card.href}
                   prefetch={false}
@@ -276,12 +286,18 @@ export default function DashboardPage() {
             ))}
           </div>
 
+          {/* Checklist + Sidebar */}
           <div className="mt-8 grid gap-6 lg:grid-cols-[1.5fr_1fr]">
+
+            {/* Checklist */}
             <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm">
-              <h2 className="text-lg font-semibold text-slate-800">اكتمال ملفك خطوة بخطوة</h2>
+              <h2 className="text-lg font-semibold text-slate-800">
+                اكتمال ملفك خطوة بخطوة
+              </h2>
               <p className="mt-1 text-sm text-slate-500">
-                أكمل العناصر التالية لتحصل على بطاقة العضوية الموثقة باللون الوردي.
+                أكمل العناصر التالية لتحصل على بطاقة العضوية الموثقة.
               </p>
+
               <div className="mt-6 grid gap-3 md:grid-cols-2">
                 {(summary?.profileChecklist ?? []).map((item) => (
                   <div
@@ -307,29 +323,25 @@ export default function DashboardPage() {
               </div>
             </div>
 
+            {/* Sidebar */}
             <aside className="space-y-6 rounded-3xl border border-slate-100 bg-white p-6 shadow-sm">
               <div>
-                <h2 className="text-lg font-semibold text-slate-800">عضويتك الحالية</h2>
+                <h2 className="text-lg font-semibold text-slate-800">
+                  عضويتك الحالية
+                </h2>
                 <p className="mt-1 text-sm text-slate-500">
-                  استكشف مزايا خطتك الحالية وقم بالترقية عند الحاجة.
+                  تعرف على مزايا خطتك الحالية.
                 </p>
+
                 <div className="mt-4 rounded-2xl border border-secondary-200 bg-secondary-50 p-5">
                   <p className="text-sm font-semibold text-secondary-700">
                     {summary?.membership.planDetails.name ?? "عضوية مجانية"}
                   </p>
-                  {summary?.membership.planDetails.subtitle ? (
-                    <p className="mt-1 text-xs text-secondary-600">
-                      {summary.membership.planDetails.subtitle}
-                    </p>
-                  ) : null}
+
                   <p className="mt-2 text-xs leading-6 text-slate-600">
                     {summary?.membership.planDetails.description}
                   </p>
-                  {summary?.membership.planDetails.highlight ? (
-                    <p className="mt-3 rounded-xl bg-white px-3 py-2 text-xs text-secondary-600">
-                      {summary.membership.planDetails.highlight}
-                    </p>
-                  ) : null}
+
                   <Link
                     href="/membership"
                     prefetch={false}
@@ -342,11 +354,13 @@ export default function DashboardPage() {
 
               <div>
                 <h3 className="text-sm font-semibold text-slate-800">
-                  أعضاء ضمن قائمتك المفضلة: {favoritesCount}
+                  أعضاء ضمن المفضلة: {favoritesCount}
                 </h3>
+
                 <p className="text-xs text-slate-600">
-                  يمكنك إدارة قائمة المفضلة لإرسال الدعوات أو حذف الأعضاء الذين لا يناسبونك.
+                  قم بإدارة قائمة المفضلة بسهولة.
                 </p>
+
                 <Link
                   href="/favorites"
                   prefetch={false}
@@ -359,12 +373,15 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        {/* Consultants */}
         <section className="rounded-3xl border border-slate-100 bg-white p-6 shadow-xl">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <h2 className="text-lg font-semibold text-slate-800">مستشارونا المميزون</h2>
+              <h2 className="text-lg font-semibold text-slate-800">
+                مستشارونا المميزون
+              </h2>
               <p className="text-sm text-slate-500">
-                اختر المستشار الأنسب لخطوتك القادمة في جلسات الرؤية الشرعية.
+                اختر المستشار الأنسب لك.
               </p>
             </div>
             <Link
@@ -375,52 +392,56 @@ export default function DashboardPage() {
               حجز جلسة رؤية
             </Link>
           </div>
+
           <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {consultants.map((consultant) => (
               <div
                 key={consultant._id}
                 className="flex flex-col gap-4 rounded-2xl border border-slate-100 bg-slate-50 p-5"
               >
-                <div className="flex items-center gap-3">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={
-                      consultant.avatarUrl ??
-                      `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(
-                        consultant.name,
-                      )}`
-                    }
-                    alt={consultant.name}
-                    className="h-14 w-14 rounded-full object-cover"
-                  />
-                  <div>
-                    <p className="text-sm font-semibold text-secondary-700">
-                      {consultant.name}
-                    </p>
-                    <p className="text-xs text-slate-500">
-                      {consultant.title ?? consultant.specialization ?? "مستشار مَوَدّة"}
-                    </p>
-                  </div>
+                <img
+                  src={
+                    consultant.avatarUrl ??
+                    `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(
+                      consultant.name
+                    )}`
+                  }
+                  alt={consultant.name}
+                  className="h-14 w-14 rounded-full object-cover"
+                />
+
+                <div>
+                  <p className="text-sm font-semibold text-secondary-700">
+                    {consultant.name}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    {consultant.title ??
+                      consultant.specialization ??
+                      "مستشار مَوَدّة"}
+                  </p>
                 </div>
+
                 <p className="text-xs leading-6 text-slate-600">
                   {consultant.bio ??
-                    "يقدم إرشاداً متخصصاً لدعمك في اتخاذ قرار زواج متوازن ومطمئن."}
+                    "يقدم إرشاداً متخصصاً لدعمك في اتخاذ قرار زواج متوازن."}
                 </p>
+
                 <div className="flex items-center justify-between text-xs text-slate-500">
                   <span>الخبرة: {consultant.yearsExperience ?? 0} سنة</span>
                   <span>التقييم: {consultant.rating ?? 5}/5</span>
                 </div>
               </div>
             ))}
-            {!loading && consultants.length === 0 ? (
+
+            {!loading && consultants.length === 0 && (
               <div className="rounded-2xl border border-dashed border-secondary-200 bg-white p-6 text-center text-sm text-secondary-700">
-                لا توجد استشارات بارزة حالياً، تابع باستمرار لمستجدات الفريق.
+                لا توجد استشارات بارزة حالياً.
               </div>
-            ) : null}
+            )}
           </div>
         </section>
       </div>
+
     </div>
   );
 }
-
