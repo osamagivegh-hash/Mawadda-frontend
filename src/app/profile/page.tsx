@@ -341,21 +341,23 @@ export default function ProfilePage() {
           'guardianName', 'guardianContact'
         ];
         
-        // Send all profile fields from current form state (has latest form values)
+        // Send ALL profile fields from current form state (has latest form values)
         profileFields.forEach((fieldName) => {
           // Use currentFormState which is a snapshot of profile at submit time
           const value = currentFormState[fieldName];
+          // ALWAYS include the field, even if undefined/null/empty
           if (value !== undefined && value !== null) {
             if (typeof value === 'string') {
               const trimmed = value.trim();
-              // Only include non-empty strings (backend filters empty strings anyway)
-              if (trimmed.length > 0) {
-                payload[fieldName] = trimmed;
-              }
+              // Include ALL strings, even empty ones (allows clearing fields)
+              payload[fieldName] = trimmed;
             } else {
               // For non-strings (numbers, booleans, etc.), include as-is
               payload[fieldName] = value;
             }
+          } else {
+            // If field is undefined/null, send empty string to ensure field is updated
+            payload[fieldName] = '';
           }
         });
         
