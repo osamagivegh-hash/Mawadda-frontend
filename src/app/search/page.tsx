@@ -126,14 +126,14 @@ export default function SearchPage() {
   }
 
   // Helper function to check if required fields are filled
+  // Gender is now automatically determined from user profile, so we only check age
   const isSearchButtonEnabled = (): boolean => {
-    const hasGender = Boolean(filters.gender && filters.gender.trim().length > 0);
     const minAgeValue = filters.minAge ? parseInt(filters.minAge) : undefined;
     const maxAgeValue = filters.maxAge ? parseInt(filters.maxAge) : undefined;
     const hasAge = (minAgeValue !== undefined && !isNaN(minAgeValue)) || 
                    (maxAgeValue !== undefined && !isNaN(maxAgeValue));
     
-    return hasGender && hasAge && !loading;
+    return hasAge && !loading;
   };
 
   const updateFilter = (name: keyof SearchFilters, value: string) => {
@@ -328,20 +328,9 @@ export default function SearchPage() {
 
             {/* العمود الأيمن */}
             <div className="space-y-4">
-              {/* الجنس */}
-              <label className="flex flex-col gap-2 text-sm text-slate-600">
-                أنا {filters.gender === "male" ? "رجل" : filters.gender === "female" ? "امرأة" : ""} أبحث عن
-                <select
-                  value={filters.gender}
-                  onChange={(event) => updateFilter("gender", event.target.value)}
-                  className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-slate-900 focus:border-accent-400 focus:outline-none focus:ring-2 focus:ring-accent-100"
-                >
-                  <option value="">اختر الجنس</option>
-                  <option value="female">أنثى</option>
-                  <option value="male">ذكر</option>
-                </select>
-              </label>
-
+              {/* Gender is automatically determined from logged-in user's profile */}
+              {/* Male users search for females, female users search for males */}
+              
               {/* الجنسية */}
               <label className="flex flex-col gap-2 text-sm text-slate-600">
                 الجنسية

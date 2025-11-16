@@ -4,7 +4,8 @@ import { fetchWithToken } from "@/lib/api";
 import { useAuthStore } from "@/store/auth-store";
 
 export type SearchFilters = {
-  gender?: string;
+  // Gender is automatically determined from logged-in user's profile
+  // Male users search for females, female users search for males
   minAge?: string;
   maxAge?: string;
   city?: string;
@@ -72,7 +73,6 @@ type SearchActions = {
 };
 
 const initialFilters: SearchFilters = {
-  gender: "",
   minAge: "",
   maxAge: "",
   city: "",
@@ -133,16 +133,10 @@ export const useSearchStore = create<SearchState & SearchActions>()(
           return;
         }
 
-        const gender = filters.gender?.trim();
         const minAgeValue = filters.minAge ? parseInt(filters.minAge) : undefined;
         const maxAgeValue = filters.maxAge ? parseInt(filters.maxAge) : undefined;
 
-        // Validate required fields
-        if (!gender) {
-          set({ error: "يجب اختيار الجنس للبحث (مطلوب)" });
-          return;
-        }
-
+        // Validate required fields (gender is now automatically determined from user profile)
         if (!minAgeValue && !maxAgeValue) {
           set({ error: "يجب إدخال العمر (من أو إلى) للبحث (مطلوب)" });
           return;
@@ -170,10 +164,9 @@ export const useSearchStore = create<SearchState & SearchActions>()(
         set({ loading: true, error: null });
 
         try {
-          // Build payload for API call
+          // Build payload for API call (gender is automatically determined by backend from user profile)
           const payload: Record<string, string | number> = {};
 
-          payload.gender = gender;
           if (minAgeValue !== undefined && !isNaN(minAgeValue)) {
             payload.minAge = minAgeValue;
           }
