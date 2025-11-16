@@ -127,7 +127,7 @@ export default function ProfilePage() {
     }
     setAuth(stored);
     fetchWithToken<ProfileResponse | null>(
-      `/profiles/${stored.user.id}`,
+      `/profiles/me`,
       stored.token,
     )
       .then((data) => {
@@ -161,6 +161,30 @@ export default function ProfilePage() {
           };
           console.log('Formatted profile for display:', formattedProfile);
           setProfile(formattedProfile);
+          // Ensure profileId is stored in auth/localStorage for future fast access
+          if (formattedProfile.id) {
+            setAuth((prevAuth) => {
+              if (!prevAuth) return prevAuth;
+              if (prevAuth.user.profileId === formattedProfile.id) {
+                return prevAuth;
+              }
+              const updatedAuth: StoredAuth = {
+                ...prevAuth,
+                user: {
+                  ...prevAuth.user,
+                  profileId: formattedProfile.id,
+                },
+              };
+              if (typeof window !== "undefined") {
+                window.localStorage.setItem(
+                  "mawaddahUser",
+                  JSON.stringify(updatedAuth.user),
+                );
+                window.dispatchEvent(new Event("storage"));
+              }
+              return updatedAuth;
+            });
+          }
         } else {
           // No profile exists yet - initialize all fields as empty
           console.log('No profile found for user');
@@ -503,6 +527,30 @@ export default function ProfilePage() {
         };
         console.log('Setting profile state with:', formattedProfile);
         setProfile(formattedProfile);
+        // After a successful save, persist profileId in auth/localStorage
+        if (formattedProfile.id) {
+          setAuth((prevAuth) => {
+            if (!prevAuth) return prevAuth;
+            if (prevAuth.user.profileId === formattedProfile.id) {
+              return prevAuth;
+            }
+            const updatedAuth: StoredAuth = {
+              ...prevAuth,
+              user: {
+                ...prevAuth.user,
+                profileId: formattedProfile.id,
+              },
+            };
+            if (typeof window !== "undefined") {
+              window.localStorage.setItem(
+                "mawaddahUser",
+                JSON.stringify(updatedAuth.user),
+              );
+              window.dispatchEvent(new Event("storage"));
+            }
+            return updatedAuth;
+          });
+        }
       } else {
         // If update failed but we have existing profile, keep it
         console.warn('Profile update returned null, keeping existing profile state');

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useState } from "react";
-import { register as registerRequest } from "@/lib/api";
+import { register as registerRequest, type AuthResponse } from "@/lib/api";
 
 const roles = [
   { value: "female", label: "عضوة" },
@@ -29,17 +29,14 @@ export default function RegisterPage() {
     try {
       setLoading(true);
       setError(null);
-      const result = (await registerRequest(payload)) as {
-        token?: string;
-        user?: Record<string, unknown> & { memberId?: string };
-      };
+      const result = await registerRequest(payload);
       const token = result.token;
       if (token && result.user) {
         // Store auth in localStorage
         window.localStorage.setItem("mawaddahToken", token);
         window.localStorage.setItem(
           "mawaddahUser",
-          JSON.stringify(result.user),
+          JSON.stringify(result.user satisfies AuthResponse["user"]),
         );
         
         // Dispatch storage event so dashboard can detect auth change (same-tab workaround)

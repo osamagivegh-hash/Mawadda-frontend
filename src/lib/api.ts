@@ -2,6 +2,27 @@ const API_BASE =
   process.env.NEXT_PUBLIC_API ??
   "http://localhost:3000/api";
 
+export interface AuthUser {
+  id: string;
+  email?: string;
+  role?: string;
+  memberId?: string;
+  status?: string;
+  profileId?: string | null;
+  preferences?: unknown[];
+  requestedMatches?: unknown[];
+  receivedMatches?: unknown[];
+  memberConsultations?: unknown[];
+  consultantConsultations?: unknown[];
+  membershipPlanId?: string | null;
+  [key: string]: unknown;
+}
+
+export interface AuthResponse {
+  token: string;
+  user: AuthUser;
+}
+
 type ApiErrorResponse = {
   message?: string | string[];
   error?: string | string[];
@@ -39,14 +60,14 @@ async function handleResponse<T>(response: Response): Promise<T> {
   return data as T;
 }
 
-export async function register(payload: Record<string, unknown>) {
+export async function register(payload: Record<string, unknown>): Promise<AuthResponse> {
   try {
     const response = await fetch(`${API_BASE}/auth/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    return handleResponse(response);
+    return handleResponse<AuthResponse>(response);
   } catch (error) {
     if (error instanceof Error) {
       throw error;
@@ -55,14 +76,14 @@ export async function register(payload: Record<string, unknown>) {
   }
 }
 
-export async function login(email: string, password: string) {
+export async function login(email: string, password: string): Promise<AuthResponse> {
   try {
     const response = await fetch(`${API_BASE}/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
     });
-    return handleResponse(response);
+    return handleResponse<AuthResponse>(response);
   } catch (error) {
     if (error instanceof Error) {
       throw error;

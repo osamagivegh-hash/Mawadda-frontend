@@ -1,11 +1,23 @@
+export type StoredUser = {
+  id: string;
+  email?: string;
+  role?: string;
+  memberId?: string;
+  status?: string;
+  profileId?: string | null;
+  preferences?: unknown[];
+  requestedMatches?: unknown[];
+  receivedMatches?: unknown[];
+  memberConsultations?: unknown[];
+  consultantConsultations?: unknown[];
+  membershipPlanId?: string | null;
+  // Allow forward-compatible extra fields without using `any`
+  [key: string]: unknown;
+};
+
 export type StoredAuth = {
   token: string;
-  user: {
-    id: string;
-    email?: string;
-    role?: string;
-    memberId?: string;
-  };
+  user: StoredUser;
 };
 
 
@@ -39,7 +51,9 @@ export function getStoredAuth(): StoredAuth | null {
   }
 
   const storedUser = window.localStorage.getItem("mawaddahUser");
-  let user = storedUser ? JSON.parse(storedUser) : undefined;
+  let user: StoredUser | undefined = storedUser
+    ? (JSON.parse(storedUser) as StoredUser)
+    : undefined;
   if (!user || !user.id) {
     const decoded = decodeJwt(token);
     user = {

@@ -2,7 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import Link from "next/link";
-import { login } from "@/lib/api";
+import { login, type AuthResponse } from "@/lib/api";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -21,16 +21,14 @@ export default function LoginPage() {
     setError(null);
 
     try {
-      const response = await login(email, password);
+      const response: AuthResponse = await login(email, password);
       if (response.token) {
         // حفظ البيانات بنفس الطريقة المستخدمة في التسجيل
         window.localStorage.setItem("mawaddahToken", response.token);
-        if (response.user) {
-          window.localStorage.setItem(
-            "mawaddahUser",
-            JSON.stringify(response.user),
-          );
-        }
+        window.localStorage.setItem(
+          "mawaddahUser",
+          JSON.stringify(response.user),
+        );
         // استخدام window.location بدلاً من router للتوافق مع التصدير الثابت
         window.location.href = "/dashboard/";
       }
