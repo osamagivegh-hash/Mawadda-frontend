@@ -431,7 +431,7 @@ export default function SearchPage() {
           <div className="mt-6">
             {!isSearchButtonEnabled() && !loading && (
               <p className="mb-2 text-sm text-amber-600 text-center">
-                ⚠️ يجب اختيار الجنس وإدخال العمر للبحث (حقول مطلوبة)
+                ⚠️ يجب إدخال العمر للبحث (حقل مطلوب)
               </p>
             )}
             <button
@@ -482,7 +482,17 @@ export default function SearchPage() {
           <p className="rounded-3xl bg-emerald-50 px-6 py-4 text-sm text-emerald-600">{feedback}</p>
         ) : null}
         {error ? (
-          <p className="rounded-3xl bg-rose-50 px-6 py-4 text-sm text-rose-600">{error}</p>
+          <div className="rounded-3xl bg-rose-50 px-6 py-4 text-sm text-rose-600">
+            <p className="mb-3">{error}</p>
+            {error.includes("ملفك الشخصي") || error.includes("الجنس") ? (
+              <Link
+                href="/profile"
+                className="inline-block rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-rose-700"
+              >
+                اذهب إلى صفحة الملف الشخصي
+              </Link>
+            ) : null}
+          </div>
         ) : null}
 
         <section className="space-y-4">

@@ -236,12 +236,24 @@ export const useSearchStore = create<SearchState & SearchActions>()(
           }
         } catch (err) {
           console.error("SEARCH STORE performSearch error:", err);
+          let errorMessage = "حدث خطأ في البحث، حاول مرة أخرى.";
+          
+          if (err instanceof Error) {
+            // Handle specific error messages
+            if (err.message.includes("gender is missing") || err.message.includes("add your gender")) {
+              errorMessage = "يجب إكمال ملفك الشخصي أولاً. يرجى إضافة الجنس في صفحة الملف الشخصي.";
+            } else if (err.message.includes("profile not found") || err.message.includes("complete your profile")) {
+              errorMessage = "يجب إكمال ملفك الشخصي أولاً قبل البحث.";
+            } else if (err.message.includes("profile")) {
+              errorMessage = "يجب إكمال ملفك الشخصي أولاً قبل البحث.";
+            } else {
+              errorMessage = err.message;
+            }
+          }
+          
           set({
             results: [],
-            error:
-              err instanceof Error
-                ? err.message
-                : "حدث خطأ في البحث، حاول مرة أخرى.",
+            error: errorMessage,
           });
         } finally {
           set({ loading: false });
