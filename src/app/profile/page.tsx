@@ -3,12 +3,9 @@
 import Link from "next/link";
 import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { fetchWithToken, uploadProfilePhoto } from "@/lib/api";
-import {
-  clearStoredAuth,
-  getStoredAuth,
-  StoredAuth,
-} from "@/lib/auth";
+import { uploadProfilePhoto } from "@/lib/api";
+import { useAuthStore } from "@/store/auth-store";
+import { useProfileStore, type ProfileResponse } from "@/store/profile-store";
 
 import countriesData from "@/data/countries.json";
 import citiesData from "@/data/cities.json";
@@ -36,36 +33,7 @@ const COMPATIBILITY_OPTIONS = compatibilityOptionsData as string[];
 // useRef to track if request is in flight (prevents double submit)
 // More reliable than state because it's synchronous
 
-type ProfileResponse = {
-  id?: string;
-  firstName?: string;
-  lastName?: string;
-  gender?: string;
-  dateOfBirth?: string;
-  nationality?: string;
-  city?: string;
-  countryOfResidence?: string;
-  education?: string;
-  occupation?: string;
-  religiosityLevel?: string;
-  religion?: string;
-  maritalStatus?: string;
-  marriageType?: string;
-  polygamyAcceptance?: string;
-  compatibilityTest?: string;
-  about?: string;
-  guardianName?: string;
-  guardianContact?: string;
-  photoUrl?: string;
-  photoStorage?: "cloudinary" | "local";
-  photoPublicId?: string | null;
-  isVerified?: boolean;
-};
-
-// Payload type used when sending profile data to the backend.
-// We keep it as a partial copy of the backend response shape so we can
-// safely index fields and still benefit from TypeScript checking.
-type ProfilePayload = Partial<ProfileResponse>;
+// ProfileResponse is now imported from profile-store
 
 type FieldConfig = {
   name: keyof ProfileResponse;
@@ -109,14 +77,20 @@ const femaleGuardianFields: FieldConfig[] = [
 
 export default function ProfilePage() {
   const router = useRouter();
-  const [auth, setAuth] = useState<StoredAuth | null>(null);
-  const [profile, setProfile] = useState<ProfileResponse>({});
-  // Keep a snapshot of the profile as loaded from the backend so we can
-  // avoid overwriting existing non-empty values with empty strings on PATCH.
-  const [initialProfile, setInitialProfile] = useState<ProfileResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  
+  // Use Zustand stores
+  const { token, user, isAuthenticated, loading: authLoading, logout } = useAuthStore();
+  const {
+    profile,
+    baseline,
+    loading,
+    saving,
+    error,
+    loadProfile,
+    setField,
+    saveProfile,
+  } = useProfileStore();
+  
   const [success, setSuccess] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement | null>(null);
   const photoInputRef = useRef<HTMLInputElement | null>(null);
@@ -125,7 +99,7 @@ export default function ProfilePage() {
   const settingsRef = useRef<HTMLDivElement | null>(null);
 
   const availableCities = useMemo(() => {
-    if (!profile.countryOfResidence) {
+    if (!profile?.countryOfResidence) {
       return CITY_OPTIONS;
     }
     const country = COUNTRY_OPTIONS.find(
@@ -133,541 +107,56 @@ export default function ProfilePage() {
     );
     if (!country) return CITY_OPTIONS;
     return CITY_OPTIONS.filter((c) => c.countryCode === country.code);
-  }, [profile.countryOfResidence]);
-  
-  // Track if request is in flight to prevent double submit
-  const isSubmittingRef = useRef(false);
+  }, [profile?.countryOfResidence]);
 
-  // Helper function to convert date to YYYY-MM-DD format for date input
-  const formatDateForInput = (date: string | Date | undefined): string => {
-    if (!date) return '';
-    
-    try {
-      const dateObj = typeof date === 'string' ? new Date(date) : date;
-      if (isNaN(dateObj.getTime())) return '';
-      
-      // Convert to YYYY-MM-DD format (required by HTML date input)
-      const year = dateObj.getFullYear();
-      const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-      const day = String(dateObj.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
-    } catch {
-      return '';
-    }
-  };
 
+  // Load profile on mount if authenticated
   useEffect(() => {
-    const stored = getStoredAuth();
-    if (!stored) {
+    if (authLoading) return; // Wait for auth to hydrate
+    
+    if (!isAuthenticated || !token) {
       router.push("/auth/login");
       return;
     }
-    setAuth(stored);
-
-    const storedProfileId = stored.user.profileId;
-    const endpoint = storedProfileId
-      ? `/profiles/${storedProfileId}`
-      : "/profiles/me";
-
-    fetchWithToken<ProfileResponse | null>(
-      endpoint,
-      stored.token,
-    )
-      .then((data) => {
-        console.log('Profile loaded from backend:', data);
-        if (data) {
-          // Start from raw backend object and only adjust dateOfBirth for the input.
-          const raw = data as ProfileResponse;
-          const formattedProfile: ProfileResponse = {
-            ...raw,
-            dateOfBirth: raw.dateOfBirth ? formatDateForInput(raw.dateOfBirth) : '',
-          };
-
-          console.log('Formatted profile for display:', formattedProfile);
-          setProfile(formattedProfile);
-          setInitialProfile(formattedProfile);
-          // Ensure profileId is stored in auth/localStorage for future fast access
-          if (formattedProfile.id) {
-            setAuth((prevAuth) => {
-              if (!prevAuth) return prevAuth;
-              if (prevAuth.user.profileId === formattedProfile.id) {
-                return prevAuth;
-              }
-              const updatedAuth: StoredAuth = {
-                ...prevAuth,
-                user: {
-                  ...prevAuth.user,
-                  profileId: formattedProfile.id,
-                },
-              };
-              if (typeof window !== "undefined") {
-                window.localStorage.setItem(
-                  "mawaddahUser",
-                  JSON.stringify(updatedAuth.user),
-                );
-                window.dispatchEvent(new Event("storage"));
-              }
-              return updatedAuth;
-            });
-          }
-        } else {
-          // No profile exists yet - initialize all fields as empty
-          console.log('No profile found for user');
-          const emptyProfile: ProfileResponse = {
-            firstName: '',
-            lastName: '',
-            gender: '',
-            dateOfBirth: '',
-            nationality: '',
-            city: '',
-            countryOfResidence: '',
-            education: '',
-            occupation: '',
-            religiosityLevel: '',
-            religion: '',
-            maritalStatus: '',
-            marriageType: '',
-            polygamyAcceptance: '',
-            compatibilityTest: '',
-            about: '',
-            guardianName: '',
-            guardianContact: '',
-          };
-          setProfile(emptyProfile);
-          setInitialProfile(emptyProfile);
-        }
-      })
-      .catch((err) => {
-        console.error('Error loading profile:', err);
-        console.error('Profile fetch error details:', err instanceof Error ? err.message : err);
-        // On error, initialize all fields as empty (no profile state in DB)
-        const emptyProfile: ProfileResponse = {
-          firstName: '',
-          lastName: '',
-          gender: '',
-          dateOfBirth: '',
-          nationality: '',
-          city: '',
-          countryOfResidence: '',
-          education: '',
-          occupation: '',
-          religiosityLevel: '',
-          religion: '',
-          maritalStatus: '',
-          marriageType: '',
-          polygamyAcceptance: '',
-          compatibilityTest: '',
-          about: '',
-          guardianName: '',
-          guardianContact: '',
-        };
-        setProfile(emptyProfile);
-        setInitialProfile(emptyProfile);
-      })
-      .finally(() => setLoading(false));
-  }, [router]);
+    
+    // Load profile using Zustand store
+    loadProfile().catch((err) => {
+      console.error("Failed to load profile:", err);
+    });
+  }, [authLoading, isAuthenticated, token, router, loadProfile]);
 
   function handleChange(name: keyof ProfileResponse, value: string) {
-    setProfile((prev) => {
-      const next = {
-        ...prev,
-        [name]: value,
-      };
-      if (name === "gender" && value !== "female") {
-        delete next.guardianName;
-        delete next.guardianContact;
-      }
-      return next;
-    });
+    setField(name, value);
+    // Clear guardian fields if gender changes from female
+    if (name === "gender" && value !== "female") {
+      setField("guardianName", "");
+      setField("guardianContact", "");
+    }
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     
-    // GUARD 1: Prevent double submit - check ref first (synchronous)
-    if (isSubmittingRef.current) {
+    // Prevent double submit
+    if (saving) {
       console.warn('Profile submission already in progress, ignoring duplicate request');
       return;
     }
     
-    // GUARD 2: Prevent double submit - check state (backup check)
-    if (saving) {
-      console.warn('Profile submission already in progress (saving=true), ignoring duplicate request');
-      return;
-    }
-    
-    if (!auth) {
+    if (!isAuthenticated || !token) {
       router.push("/auth/login");
       return;
     }
     
-    // Set submitting flag immediately (synchronous, prevents double execution)
-    isSubmittingRef.current = true;
-    setSaving(true);
-    setError(null);
     setSuccess(null);
     
-    // Validate required fields (matching backend CreateProfileDto)
-    const requiredFields = [
-      { name: 'gender', label: 'الجنس' },
-      { name: 'dateOfBirth', label: 'تاريخ الميلاد' },
-      { name: 'city', label: 'المدينة' },
-      { name: 'nationality', label: 'الجنسية' },
-      { name: 'maritalStatus', label: 'الحالة الاجتماعية' },
-      { name: 'education', label: 'المؤهل الدراسي' },
-      { name: 'occupation', label: 'الوظيفة' },
-      { name: 'religiosityLevel', label: 'درجة الالتزام' },
-    ];
-
-    const missingFields = requiredFields.filter(
-      field => {
-        const value = profile[field.name as keyof ProfileResponse];
-        return !value || String(value).trim() === '';
-      }
-    );
-
-    if (missingFields.length > 0) {
-      const missingLabels = missingFields.map(f => f.label).join('، ');
-      setError(`يجب ملء الحقول التالية (مطلوبة): ${missingLabels}`);
-      setSuccess(null);
-      isSubmittingRef.current = false; // Reset flag on validation error
-      setSaving(false);
-      return;
-    }
-
-    // Validate gender value (must be "male" or "female")
-    if (profile.gender && profile.gender !== 'male' && profile.gender !== 'female') {
-      setError('الجنس يجب أن يكون "male" أو "female" (ذكر أو أنثى)');
-      setSuccess(null);
-      isSubmittingRef.current = false; // Reset flag on validation error
-      setSaving(false);
-      return;
-    }
-
-    // Validate dateOfBirth format (must be valid ISO date string)
-    if (profile.dateOfBirth) {
-      const dateValue = new Date(profile.dateOfBirth);
-      if (isNaN(dateValue.getTime())) {
-        setError('تاريخ الميلاد غير صحيح. يرجى إدخال تاريخ صحيح');
-        setSuccess(null);
-        isSubmittingRef.current = false; // Reset flag on validation error
-        setSaving(false);
-        return;
-      }
-      // Ensure it's in ISO format (YYYY-MM-DD)
-      const isoDate = dateValue.toISOString().split('T')[0];
-      profile.dateOfBirth = isoDate;
-    }
-
-    // Validate about field if provided (min 2 characters)
-    if (profile.about && profile.about.trim().length < 2) {
-      setError('النبذة التعريفية يجب أن تكون على الأقل حرفين');
-      setSuccess(null);
-      isSubmittingRef.current = false; // Reset flag on validation error
-      setSaving(false);
-      return;
-    }
-    
     try {
-      // Determine if profile exists - check if we have an id in state
-      // Don't fetch existing profile during submit to avoid overwriting user's current input
-      const profileExists = !!profile.id;
-      
-      // Use current profile state directly (has all user's latest form input)
-      // Don't modify profile state during submit to preserve user input
-      const currentFormState = { ...profile };
-      
-      let updated: ProfileResponse;
-      
-      if (profileExists) {
-        // Update existing profile.
-        // IMPORTANT: Only send fields that actually changed compared to the
-        // loaded profile snapshot to avoid overwriting existing data with
-        // empty strings when the user did not modify those fields.
-        const payload: Record<string, string> = {};
-        
-        // List of all profile fields that should be sent
-        const profileFields: (keyof ProfileResponse)[] = [
-          'firstName', 'lastName', 'gender', 'dateOfBirth', 'nationality', 
-          'city', 'countryOfResidence', 'education', 'occupation', 
-          'religiosityLevel', 'religion', 'maritalStatus', 'marriageType', 
-          'polygamyAcceptance', 'compatibilityTest', 'about', 
-          'guardianName', 'guardianContact'
-        ];
-
-        const baseline = initialProfile ?? {};
-
-        profileFields.forEach((fieldName) => {
-          const currentValueRaw = currentFormState[fieldName];
-          const baselineValueRaw = baseline[fieldName];
-
-          const currentValue =
-            typeof currentValueRaw === "string"
-              ? currentValueRaw.trim()
-              : currentValueRaw;
-          const baselineValue =
-            typeof baselineValueRaw === "string"
-              ? baselineValueRaw.trim()
-              : baselineValueRaw;
-
-          // If nothing changed, skip this field entirely so we don't touch it in DB.
-          if (currentValue === baselineValue) {
-            return;
-          }
-
-          // If the user explicitly cleared the field (baseline had a value, now empty),
-          // send an empty string to clear it in the database.
-          if (
-            (baselineValue ?? "") !== "" &&
-            (currentValue === "" || currentValue === null || currentValue === undefined)
-          ) {
-            payload[fieldName as string] = "";
-            return;
-          }
-
-          // If the user provided a non-empty value (or changed non-string value),
-          // send the updated value.
-          if (currentValue !== undefined && currentValue !== null) {
-            if (typeof currentValue === "string") {
-              payload[fieldName as string] = currentValue;
-            } else {
-              payload[fieldName as string] = String(currentValue);
-            }
-          }
-          // If both baseline and current are "empty" (undefined/null/""), we already
-          // returned early above when they were equal, so we don't reach here.
-        });
-
-        // If there are no changes, avoid sending a PATCH at all.
-        if (Object.keys(payload).length === 0) {
-          setSuccess("لا توجد تغييرات لحفظها.");
-          return;
-        }
-        
-        // Don't include internal fields like id, user, photoUrl, etc. in update payload
-        // These are managed by the backend
-        
-        console.log('Updating profile - current form state:', currentFormState);
-        console.log('Updating profile with payload (diff only):', payload);
-        
-        updated = await fetchWithToken<ProfileResponse>(
-          `/profiles/${auth.user.id}`,
-          auth.token,
-          {
-            method: "PATCH",
-            body: JSON.stringify(payload),
-          },
-        );
-        setSuccess("تم تحديث البيانات بنجاح.");
-      } else {
-        // Create new profile - only send required fields + optional 'about' (CreateProfileDto)
-        // Backend has whitelist: true, forbidNonWhitelisted: true, so we can only send allowed fields
-        const createPayload: ProfilePayload = {
-          gender: currentFormState.gender?.trim(),
-          dateOfBirth: currentFormState.dateOfBirth?.trim(),
-          city: currentFormState.city?.trim(),
-          nationality: currentFormState.nationality?.trim(),
-          maritalStatus: currentFormState.maritalStatus?.trim(),
-          education: currentFormState.education?.trim(),
-          occupation: currentFormState.occupation?.trim(),
-          religiosityLevel: currentFormState.religiosityLevel?.trim(),
-        };
-        
-        // Add optional 'about' field if provided
-        if (currentFormState.about && currentFormState.about.trim().length >= 2) {
-          createPayload.about = currentFormState.about.trim();
-        }
-        
-        console.log('Creating new profile with payload:', createPayload);
-        updated = await fetchWithToken<ProfileResponse>(
-          `/profiles`,
-          auth.token,
-          {
-            method: "POST",
-            body: JSON.stringify(createPayload),
-          },
-        );
-        console.log('Profile created successfully:', updated);
-        setSuccess("تم إنشاء الملف الشخصي بنجاح.");
-        
-        // After creating profile, if there are optional fields filled, update them with PATCH
-        const optionalFields = ['firstName', 'lastName', 'countryOfResidence', 'religion', 
-          'marriageType', 'polygamyAcceptance', 'compatibilityTest', 'guardianName', 'guardianContact'];
-        const hasOptionalFields = optionalFields.some(field => currentFormState[field as keyof ProfileResponse] && 
-          String(currentFormState[field as keyof ProfileResponse]).trim().length > 0);
-        
-        // Also check if 'about' field has valid content (min 2 chars) and wasn't included in create
-        const hasAbout = currentFormState.about && currentFormState.about.trim().length >= 2;
-        
-        if (hasOptionalFields || hasAbout) {
-          // Update with optional fields
-          const updatePayload: Record<string, string> = {};
-          
-          // Include all optional fields that have values
-          Object.entries(currentFormState).forEach(([key, value]) => {
-            // Include all fields that are not required in CreateProfileDto
-            if (key !== 'gender' && key !== 'dateOfBirth' && key !== 'city' && 
-                key !== 'nationality' && key !== 'maritalStatus' && key !== 'education' && 
-                key !== 'occupation' && key !== 'religiosityLevel' && key !== 'id' && key !== 'user') {
-              if (value !== null && value !== undefined && value !== '') {
-                if (typeof value === 'string') {
-                  const trimmed = value.trim();
-                  // For 'about', require min 2 chars; for others, any non-empty string
-                  if (key === 'about') {
-                    if (trimmed.length >= 2) {
-                      updatePayload[key] = trimmed;
-                    }
-                  } else if (trimmed.length > 0) {
-                    updatePayload[key] = trimmed;
-                  }
-                } else {
-                  updatePayload[key] = String(value);
-                }
-              }
-            }
-          });
-          
-          if (Object.keys(updatePayload).length > 0) {
-            console.log('Updating profile with optional fields:', updatePayload);
-            // Update with optional fields - use the created profile's data to ensure we have the id
-            const patchResult = await fetchWithToken<ProfileResponse>(
-              `/profiles/${auth.user.id}`,
-              auth.token,
-              {
-                method: "PATCH",
-                body: JSON.stringify(updatePayload),
-              },
-            );
-            console.log('Profile updated with optional fields:', patchResult);
-            // Merge the update result with the created profile
-            updated = { ...updated, ...patchResult };
-            setSuccess("تم حفظ جميع البيانات بنجاح.");
-          }
-        }
-      }
-      
-      // Format dateOfBirth for date input after saving
-      // Also ensure all fields are preserved (merge with current form state to keep user's input)
-      if (updated) {
-        console.log('Profile after save:', updated);
-        // Initialize all fields to ensure they're always in state
-        const formattedProfile: ProfileResponse = {
-          // Initialize all fields with empty strings
-          firstName: '',
-          lastName: '',
-          gender: '',
-          nationality: '',
-          city: '',
-          countryOfResidence: '',
-          education: '',
-          occupation: '',
-          religiosityLevel: '',
-          religion: '',
-          maritalStatus: '',
-          marriageType: '',
-          polygamyAcceptance: '',
-          compatibilityTest: '',
-          about: '',
-          guardianName: '',
-          guardianContact: '',
-          // Override with current form state (preserves user's input that might not be in server response)
-          ...currentFormState,
-          // Overwrite with server response (ensures id and server values are set)
-          ...updated,
-          // Format dateOfBirth for date input (set after spread to override)
-          dateOfBirth: updated.dateOfBirth ? formatDateForInput(updated.dateOfBirth) : (currentFormState.dateOfBirth || ''),
-          // CRITICAL: Ensure id is set so future saves use PATCH instead of POST
-          id: updated.id || currentFormState.id,
-        };
-        console.log('Setting profile state with:', formattedProfile);
-        setProfile(formattedProfile);
-        // After a successful save, persist profileId in auth/localStorage
-        if (formattedProfile.id) {
-          setAuth((prevAuth) => {
-            if (!prevAuth) return prevAuth;
-            if (prevAuth.user.profileId === formattedProfile.id) {
-              return prevAuth;
-            }
-            const updatedAuth: StoredAuth = {
-              ...prevAuth,
-              user: {
-                ...prevAuth.user,
-                profileId: formattedProfile.id,
-              },
-            };
-            if (typeof window !== "undefined") {
-              window.localStorage.setItem(
-                "mawaddahUser",
-                JSON.stringify(updatedAuth.user),
-              );
-              window.dispatchEvent(new Event("storage"));
-            }
-            return updatedAuth;
-          });
-        }
-      } else {
-        // If update failed but we have existing profile, keep it
-        console.warn('Profile update returned null, keeping existing profile state');
-      }
+      // Use Zustand store's saveProfile which handles all the diffing logic
+      await saveProfile();
+      setSuccess("تم حفظ البيانات بنجاح.");
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "حدث خطأ غير متوقع";
-      
-      // Handle common backend errors
-      // If profile already exists, treat it as success (duplicate request was handled)
-      if (errorMessage.includes("already exists") || errorMessage.includes("409")) {
-        // This might be a duplicate request, check if profile exists now
-        try {
-          const existingProfile = await fetchWithToken<ProfileResponse>(
-            `/profiles/${auth.user.id}`,
-            auth.token,
-          );
-          if (existingProfile) {
-            // Format dateOfBirth for date input and initialize all fields
-            const formattedProfile: ProfileResponse = {
-            // Initialize all fields
-            firstName: '',
-            lastName: '',
-            gender: '',
-            nationality: '',
-            city: '',
-            countryOfResidence: '',
-            education: '',
-            occupation: '',
-            religiosityLevel: '',
-            religion: '',
-            maritalStatus: '',
-            marriageType: '',
-            polygamyAcceptance: '',
-            compatibilityTest: '',
-            about: '',
-            guardianName: '',
-            guardianContact: '',
-            // Override with existing profile data
-            ...existingProfile,
-            // Format dateOfBirth for date input (set after spread to override)
-            dateOfBirth: existingProfile.dateOfBirth ? formatDateForInput(existingProfile.dateOfBirth) : '',
-            };
-            setProfile(formattedProfile);
-            setSuccess("تم حفظ البيانات بنجاح.");
-          } else {
-            setError("حدث خطأ. يرجى تحديث الصفحة والمحاولة مرة أخرى.");
-          }
-        } catch {
-          setError("الملف الشخصي موجود بالفعل. يرجى تحديث الصفحة.");
-        }
-      } else if (errorMessage.includes("required") || errorMessage.includes("مطلوب")) {
-        setError(errorMessage);
-      } else if (errorMessage.includes("gender must be")) {
-        setError('الجنس يجب أن يكون "male" أو "female"');
-      } else if (errorMessage.includes("dateOfBirth")) {
-        setError('تاريخ الميلاد يجب أن يكون بصيغة ISO صحيحة (YYYY-MM-DD)');
-      } else {
-        setError(`خطأ في الحفظ: ${errorMessage}`);
-      }
-    } finally {
-      // Always reset flags in finally block
-      isSubmittingRef.current = false;
-      setSaving(false);
+      // Error is already set by the store
+      console.error("Profile save error:", err);
     }
   }
 
@@ -708,7 +197,7 @@ export default function ProfilePage() {
   ];
 
   const resolvedPhotoUrl = useMemo(() => {
-    if (!profile.photoUrl) return null;
+    if (!profile?.photoUrl) return null;
     if (/^https?:\/\//i.test(profile.photoUrl)) {
       return profile.photoUrl;
     }
@@ -717,23 +206,35 @@ export default function ProfilePage() {
       ? profile.photoUrl
       : `/${profile.photoUrl}`;
     return `${base}${path}`;
-  }, [profile.photoUrl]);
+  }, [profile?.photoUrl]);
 
-  if (!auth) return null;
+  // Show loading state while auth is hydrating
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center text-slate-600">جاري التحميل...</div>
+      </div>
+    );
+  }
+
+  // Redirect if not authenticated
+  if (!isAuthenticated || !token || !user) {
+    return null; // useEffect will redirect
+  }
 
   const displayName =
-    profile.firstName || profile.lastName
+    profile?.firstName || profile?.lastName
       ? `${profile.firstName ?? ""} ${profile.lastName ?? ""}`.trim()
-      : auth.user.email ?? "عضو مَوَدّة";
+      : user.email ?? "عضو مَوَدّة";
 
-  const isFemale = profile.gender === "female";
+  const isFemale = profile?.gender === "female";
   const renderedFields = isFemale
     ? [...baseFields, ...femaleGuardianFields]
     : baseFields;
 
   async function handlePhotoSelected(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
-    if (!file || !auth) {
+    if (!file || !token || !user) {
       return;
     }
 
@@ -759,41 +260,14 @@ export default function ProfilePage() {
     setPhotoUploading(true);
 
     try {
-      const updated = await uploadProfilePhoto<ProfileResponse>(
-        auth.token,
-        auth.user.id,
+      const updated = await uploadProfilePhoto(
+        token,
+        user.id,
         file,
       );
       if (updated) {
-        // Format dateOfBirth for date input when photo is updated
-        // Preserve all existing profile fields and merge with updated photo data
-        const formattedProfile: ProfileResponse = {
-          // Initialize all fields
-          firstName: '',
-          lastName: '',
-          gender: '',
-          nationality: '',
-          city: '',
-          countryOfResidence: '',
-          education: '',
-          occupation: '',
-          religiosityLevel: '',
-          religion: '',
-          maritalStatus: '',
-          marriageType: '',
-          polygamyAcceptance: '',
-          compatibilityTest: '',
-          about: '',
-          guardianName: '',
-          guardianContact: '',
-          // Preserve current profile state (all form fields)
-          ...profile,
-          // Override with updated photo data from server
-          ...updated,
-          // Format dateOfBirth for date input (set after spread to override)
-          dateOfBirth: updated.dateOfBirth ? formatDateForInput(updated.dateOfBirth) : (profile.dateOfBirth || ''),
-        };
-        setProfile(formattedProfile);
+        // Reload profile to get updated photo URL
+        await loadProfile();
       }
       setPhotoStatus({
         type: "success",
@@ -853,10 +327,7 @@ export default function ProfilePage() {
           <button
             type="button"
             onClick={() => {
-              clearStoredAuth();
-              if (typeof window !== "undefined") {
-                window.dispatchEvent(new Event("storage"));
-              }
+              logout();
               router.push("/");
             }}
             className="rounded-full bg-gradient-to-r from-rose-500 to-secondary-500 px-6 py-2 text-sm font-medium text-white shadow-sm transition hover:opacity-90"
@@ -874,10 +345,10 @@ export default function ProfilePage() {
             <h1 className="text-3xl font-bold">
               أهلاً بك، {displayName || "عضونا العزيز"}
             </h1>
-            {auth.user.memberId && (
+            {user.memberId && (
               <div className="inline-flex items-center gap-2 rounded-full bg-white/20 px-4 py-2 text-sm font-medium">
                 <span>🆔</span>
-                <span>رقم العضوية: {auth.user.memberId}</span>
+                <span>رقم العضوية: {user.memberId}</span>
               </div>
             )}
             <p className="text-sm leading-7 text-white/75">
@@ -990,7 +461,7 @@ export default function ProfilePage() {
 
               <div className="grid gap-6 md:grid-cols-2">
                 {renderedFields.map((field) => {
-                  const fieldValue = profile[field.name] ? String(profile[field.name]) : "";
+                  const fieldValue = profile?.[field.name] ? String(profile[field.name]) : "";
                   const isRequired = requiredFields.has(field.name);
                   
                   // Handle select fields
@@ -1118,7 +589,7 @@ export default function ProfilePage() {
                             </option>
                           ))}
                         </select>
-                        {!profile.countryOfResidence && (
+                        {!profile?.countryOfResidence && (
                           <span className="text-xs text-slate-500">
                             يرجى اختيار بلد الإقامة أولاً للحصول على قائمة المدن المناسبة.
                           </span>
@@ -1399,7 +870,7 @@ export default function ProfilePage() {
                 نبذة تعريفية
                 <textarea
                   rows={4}
-                  value={profile.about ?? ""}
+                  value={profile?.about ?? ""}
                   onChange={(event) =>
                     handleChange("about", event.target.value)
                   }
