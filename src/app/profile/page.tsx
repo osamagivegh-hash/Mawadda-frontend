@@ -39,6 +39,11 @@ type ProfileResponse = {
   isVerified?: boolean;
 };
 
+// Payload type used when sending profile data to the backend.
+// We keep it as a partial copy of the backend response shape so we can
+// safely index fields and still benefit from TypeScript checking.
+type ProfilePayload = Partial<ProfileResponse>;
+
 type FieldConfig = {
   name: keyof ProfileResponse;
   label: string;
@@ -286,12 +291,6 @@ export default function ProfilePage() {
       return;
     }
 
-    // Type guard for accessing profile fields
-    const getFieldValue = (fieldName: keyof ProfileResponse): string => {
-      const value = profile[fieldName];
-      return value ? String(value) : '';
-    };
-
     // Validate dateOfBirth format (must be valid ISO date string)
     if (profile.dateOfBirth) {
       const dateValue = new Date(profile.dateOfBirth);
@@ -330,7 +329,7 @@ export default function ProfilePage() {
       if (profileExists) {
         // Update existing profile - send all fields from CURRENT form state (profile, not currentProfile)
         // Use the current profile state which has all the latest form values
-        const payload: Record<string, any> = {};
+        const payload: Record<string, string> = {};
         
         // List of all profile fields that should be sent
         const profileFields: (keyof ProfileResponse)[] = [
@@ -350,14 +349,14 @@ export default function ProfilePage() {
           // ALWAYS include every field - never skip any field
           if (value === undefined || value === null) {
             // If undefined/null, send empty string
-            payload[fieldName] = '';
-          } else if (typeof value === 'string') {
+            payload[fieldName as string] = "";
+          } else if (typeof value === "string") {
             // For strings, always include (even if empty after trim)
             const trimmed = value.trim();
-            payload[fieldName] = trimmed;
+            payload[fieldName as string] = trimmed;
           } else {
-            // For non-strings (numbers, booleans, etc.), include as-is
-            payload[fieldName] = value;
+            // For non-strings (numbers, booleans, etc.), send as string
+            payload[fieldName as string] = String(value);
           }
         });
         
@@ -385,7 +384,7 @@ export default function ProfilePage() {
       } else {
         // Create new profile - only send required fields + optional 'about' (CreateProfileDto)
         // Backend has whitelist: true, forbidNonWhitelisted: true, so we can only send allowed fields
-        const createPayload: Record<string, any> = {
+        const createPayload: ProfilePayload = {
           gender: currentFormState.gender?.trim(),
           dateOfBirth: currentFormState.dateOfBirth?.trim(),
           city: currentFormState.city?.trim(),
@@ -424,7 +423,7 @@ export default function ProfilePage() {
         
         if (hasOptionalFields || hasAbout) {
           // Update with optional fields
-          const updatePayload: Record<string, any> = {};
+          const updatePayload: Record<string, string> = {};
           
           // Include all optional fields that have values
           Object.entries(currentFormState).forEach(([key, value]) => {
@@ -444,7 +443,7 @@ export default function ProfilePage() {
                     updatePayload[key] = trimmed;
                   }
                 } else {
-                  updatePayload[key] = value;
+                  updatePayload[key] = String(value);
                 }
               }
             }

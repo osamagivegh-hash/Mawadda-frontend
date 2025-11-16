@@ -2,26 +2,40 @@ const API_BASE =
   process.env.NEXT_PUBLIC_API ??
   "http://localhost:3000/api";
 
+type ApiErrorResponse = {
+  message?: string | string[];
+  error?: string | string[];
+  statusMessage?: string;
+};
+
 async function handleResponse<T>(response: Response): Promise<T> {
-  let data: any = {};
-  
+  let data: unknown = {};
+
   try {
     const text = await response.text();
     if (text) {
       data = JSON.parse(text);
     }
-  } catch (error) {
+  } catch {
     // إذا فشل تحويل JSON، نستخدم رسالة خطأ عامة
-    data = { message: "حدث خطأ في معالجة الاستجابة" };
+    data = { message: "حدث خطأ في معالجة الاستجابة" } satisfies ApiErrorResponse;
   }
-  
+
   if (!response.ok) {
-    const message =
-      (data && (data.message || data.error || data.statusMessage)) ?? 
+    const errorData = (data ?? {}) as ApiErrorResponse;
+    const rawMessage =
+      errorData.message ??
+      errorData.error ??
+      errorData.statusMessage ??
       `حدث خطأ غير متوقع (${response.status})`;
-    throw new Error(Array.isArray(message) ? message.join("، ") : message);
+
+    const normalizedMessage = Array.isArray(rawMessage)
+      ? rawMessage.join("، ")
+      : rawMessage;
+
+    throw new Error(normalizedMessage);
   }
-  
+
   return data as T;
 }
 
