@@ -28,10 +28,11 @@ export const useAuthStore = create<AuthState & AuthActions>()(
       loading: true,
 
       setAuth: (token, user) => {
+        console.log("AUTH STORE: setAuth called", { token: !!token, user: user?.email });
         set({
           token,
           user,
-          profileId: user?.id ?? null,
+          profileId: user?.profileId ?? null,
           isAuthenticated: Boolean(token && user),
           loading: false,
         });

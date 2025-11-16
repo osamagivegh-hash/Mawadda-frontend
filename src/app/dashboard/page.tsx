@@ -15,6 +15,7 @@ import {
   getStoredAuth,
   type StoredAuth,
 } from "@/lib/auth";
+import { useAuthStore } from "@/store/auth-store";
 
 type SummaryResponse = {
   profileCompletion: number;
@@ -54,13 +55,7 @@ type ConsultantHighlight = {
 
 export default function DashboardPage() {
   const router = useRouter();
-
-  // ============================
-  // 1) AUTH STATE (محسّنة)
-  // ============================
-  const [authLoaded, setAuthLoaded] = useState(false); // لتحديد وقت اكتمال قراءة localStorage
-  const [auth, setAuth] = useState<StoredAuth | null>(null);
-  const token = auth?.token ?? null;
+  const { token, user, isAuthenticated, loading: authLoading, logout } = useAuthStore();
 
   // ============================
   // 2) DATA STATES (يجب أن تكون قبل أي return)
@@ -71,25 +66,12 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // قراءة التوكن فور تحميل الصفحة فقط
+  // Redirect to login if not authenticated
   useEffect(() => {
-    const stored = getStoredAuth();
-    setAuth(stored);
-    setAuthLoaded(true);
-
-    // التحديث إذا تغيّر auth من Tab آخر
-    const sync = () => setAuth(getStoredAuth());
-    window.addEventListener("storage", sync);
-    return () => window.removeEventListener("storage", sync);
-  }, []);
-
-  // حماية الصفحة – لكن فقط بعد اكتمال التحميل
-  useEffect(() => {
-    if (!authLoaded) return;
-    if (!token) {
+    if (!authLoading && !isAuthenticated) {
       router.replace("/auth/login");
     }
-  }, [authLoaded, token, router]);
+  }, [authLoading, isAuthenticated, router]);
 
   // ============================
   // 3) LOAD DASHBOARD DATA (يجب أن يكون قبل أي return)
@@ -142,8 +124,8 @@ export default function DashboardPage() {
   // ============================
   // 5) EARLY RETURNS (بعد جميع الـ hooks)
   // ============================
-  // إذا لم يتم تحميل auth بعد → لا نعرض أي شيء
-  if (!authLoaded) {
+  // Show loading while auth is hydrating
+  if (authLoading) {
     return (
       <div className="w-full h-screen flex items-center justify-center text-secondary-600">
         جاري التحميل...
@@ -151,8 +133,8 @@ export default function DashboardPage() {
     );
   }
 
-  // إذا authLoaded == true لكن token غير موجود → إعادة التوجيه ستعمل بالأعلى
-  if (!token) {
+  // Show nothing if not authenticated (redirect will happen)
+  if (!isAuthenticated) {
     return null;
   }
 
@@ -186,7 +168,7 @@ export default function DashboardPage() {
     },
   ];
 
-  const displayName = auth?.user?.email ?? "عضو مَوَدّة";
+  const displayName = user?.email ?? "عضو مَوَدّة";
 
   // ============================
   // 7) RETURN UI
@@ -233,8 +215,7 @@ export default function DashboardPage() {
           <button
             type="button"
             onClick={() => {
-              clearStoredAuth();
-              window.dispatchEvent(new Event("storage"));
+              logout();
               router.push("/");
             }}
             className="rounded-full bg-gradient-to-r from-rose-500 to-secondary-500 px-5 py-2 text-sm font-medium text-white shadow-sm transition hover:opacity-90"

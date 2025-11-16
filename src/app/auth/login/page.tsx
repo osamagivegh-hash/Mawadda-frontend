@@ -23,12 +23,24 @@ export default function LoginPage() {
     setError(null);
 
     try {
+      console.log("LOGIN: Attempting login for", email);
       const response: AuthResponse = await login(email, password);
+      console.log("LOGIN: Response received", { token: !!response.token, user: response.user?.email });
+      
       if (response.token) {
+        // Clear old localStorage keys to avoid conflicts
+        window.localStorage.removeItem("mawaddahToken");
+        window.localStorage.removeItem("mawaddahUser");
+        
         // Use Zustand auth store instead of manual localStorage
+        console.log("LOGIN: Calling setAuth");
         setAuth(response.token, response.user);
-        // استخدام window.location بدلاً من router للتوافق مع التصدير الثابت
-        window.location.href = "/dashboard/";
+        
+        // Small delay to ensure Zustand state is updated
+        setTimeout(() => {
+          console.log("LOGIN: Redirecting to dashboard");
+          window.location.href = "/dashboard/";
+        }, 100);
       }
     } catch (err) {
       console.error("Login error:", err);
