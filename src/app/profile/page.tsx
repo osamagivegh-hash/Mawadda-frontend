@@ -10,6 +10,29 @@ import {
   StoredAuth,
 } from "@/lib/auth";
 
+import countriesData from "@/data/countries.json";
+import citiesData from "@/data/cities.json";
+import educationLevelsData from "@/data/education.json";
+import jobsData from "@/data/jobs.json";
+import maritalStatusData from "@/data/marital-status.json";
+import marriageTypesData from "@/data/marriage-type.json";
+import religiosityLevelsData from "@/data/religiosity-level.json";
+import polygamyOptionsData from "@/data/polygamy.json";
+import compatibilityOptionsData from "@/data/compatibility.json";
+
+type CountryOption = { code: string; name: string };
+type CityOption = { countryCode: string; name: string };
+
+const COUNTRY_OPTIONS = countriesData as CountryOption[];
+const CITY_OPTIONS = citiesData as CityOption[];
+const EDUCATION_OPTIONS = educationLevelsData as string[];
+const JOB_OPTIONS = jobsData as string[];
+const MARITAL_STATUS_OPTIONS = maritalStatusData as string[];
+const MARRIAGE_TYPE_OPTIONS = marriageTypesData as string[];
+const RELIGIOSITY_OPTIONS = religiosityLevelsData as string[];
+const POLYGAMY_OPTIONS = polygamyOptionsData as string[];
+const COMPATIBILITY_OPTIONS = compatibilityOptionsData as string[];
+
 // useRef to track if request is in flight (prevents double submit)
 // More reliable than state because it's synchronous
 
@@ -100,6 +123,17 @@ export default function ProfilePage() {
   const [photoUploading, setPhotoUploading] = useState(false);
   const [photoStatus, setPhotoStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const settingsRef = useRef<HTMLDivElement | null>(null);
+
+  const availableCities = useMemo(() => {
+    if (!profile.countryOfResidence) {
+      return CITY_OPTIONS;
+    }
+    const country = COUNTRY_OPTIONS.find(
+      (c) => c.name === profile.countryOfResidence,
+    );
+    if (!country) return CITY_OPTIONS;
+    return CITY_OPTIONS.filter((c) => c.countryCode === country.code);
+  }, [profile.countryOfResidence]);
   
   // Track if request is in flight to prevent double submit
   const isSubmittingRef = useRef(false);
@@ -990,6 +1024,175 @@ export default function ProfilePage() {
                     );
                   }
                   
+                  if (field.name === "nationality") {
+                    return (
+                      <label
+                        key={field.name}
+                        className="flex flex-col gap-2 text-sm text-slate-600"
+                      >
+                        <span className="flex items-center gap-1">
+                          {field.label}
+                          {isRequired && <span className="text-rose-500">*</span>}
+                        </span>
+                        <select
+                          value={fieldValue}
+                          onChange={(event) =>
+                            handleChange(field.name, event.target.value)
+                          }
+                          className={`rounded-xl border ${
+                            isRequired && !fieldValue
+                              ? 'border-rose-300 bg-rose-50'
+                              : 'border-slate-200 bg-slate-50'
+                          } px-4 py-3 text-slate-900 focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-100`}
+                          required={isRequired}
+                        >
+                          <option value="">اختر الجنسية</option>
+                          {COUNTRY_OPTIONS.map((country) => (
+                            <option key={country.code} value={country.name}>
+                              {country.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    );
+                  }
+
+                  if (field.name === "countryOfResidence") {
+                    return (
+                      <label
+                        key={field.name}
+                        className="flex flex-col gap-2 text-sm text-slate-600"
+                      >
+                        <span className="flex items-center gap-1">
+                          {field.label}
+                          {isRequired && <span className="text-rose-500">*</span>}
+                        </span>
+                        <select
+                          value={fieldValue}
+                          onChange={(event) =>
+                            handleChange(field.name, event.target.value)
+                          }
+                          className={`rounded-xl border ${
+                            isRequired && !fieldValue
+                              ? 'border-rose-300 bg-rose-50'
+                              : 'border-slate-200 bg-slate-50'
+                          } px-4 py-3 text-slate-900 focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-100`}
+                        >
+                          <option value="">اختر بلد الإقامة</option>
+                          {COUNTRY_OPTIONS.map((country) => (
+                            <option key={country.code} value={country.name}>
+                              {country.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    );
+                  }
+
+                  if (field.name === "city") {
+                    return (
+                      <label
+                        key={field.name}
+                        className="flex flex-col gap-2 text-sm text-slate-600"
+                      >
+                        <span className="flex items-center gap-1">
+                          {field.label}
+                          {isRequired && <span className="text-rose-500">*</span>}
+                        </span>
+                        <select
+                          value={fieldValue}
+                          onChange={(event) =>
+                            handleChange(field.name, event.target.value)
+                          }
+                          className={`rounded-xl border ${
+                            isRequired && !fieldValue
+                              ? 'border-rose-300 bg-rose-50'
+                              : 'border-slate-200 bg-slate-50'
+                          } px-4 py-3 text-slate-900 focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-100`}
+                          required={isRequired}
+                        >
+                          <option value="">اختر المدينة</option>
+                          {availableCities.map((city) => (
+                            <option key={`${city.countryCode}-${city.name}`} value={city.name}>
+                              {city.name}
+                            </option>
+                          ))}
+                        </select>
+                        {!profile.countryOfResidence && (
+                          <span className="text-xs text-slate-500">
+                            يرجى اختيار بلد الإقامة أولاً للحصول على قائمة المدن المناسبة.
+                          </span>
+                        )}
+                      </label>
+                    );
+                  }
+
+                  if (field.name === "education") {
+                    return (
+                      <label
+                        key={field.name}
+                        className="flex flex-col gap-2 text-sm text-slate-600"
+                      >
+                        <span className="flex items-center gap-1">
+                          {field.label}
+                          {isRequired && <span className="text-rose-500">*</span>}
+                        </span>
+                        <select
+                          value={fieldValue}
+                          onChange={(event) =>
+                            handleChange(field.name, event.target.value)
+                          }
+                          className={`rounded-xl border ${
+                            isRequired && !fieldValue
+                              ? 'border-rose-300 bg-rose-50'
+                              : 'border-slate-200 bg-slate-50'
+                          } px-4 py-3 text-slate-900 focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-100`}
+                          required={isRequired}
+                        >
+                          <option value="">اختر المؤهل الدراسي</option>
+                          {EDUCATION_OPTIONS.map((option) => (
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    );
+                  }
+
+                  if (field.name === "occupation") {
+                    return (
+                      <label
+                        key={field.name}
+                        className="flex flex-col gap-2 text-sm text-slate-600"
+                      >
+                        <span className="flex items-center gap-1">
+                          {field.label}
+                          {isRequired && <span className="text-rose-500">*</span>}
+                        </span>
+                        <select
+                          value={fieldValue}
+                          onChange={(event) =>
+                            handleChange(field.name, event.target.value)
+                          }
+                          className={`rounded-xl border ${
+                            isRequired && !fieldValue
+                              ? 'border-rose-300 bg-rose-50'
+                              : 'border-slate-200 bg-slate-50'
+                          } px-4 py-3 text-slate-900 focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-100`}
+                          required={isRequired}
+                        >
+                          <option value="">اختر الوظيفة</option>
+                          {JOB_OPTIONS.map((job) => (
+                            <option key={job} value={job}>
+                              {job}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    );
+                  }
+
                   if (field.name === "religion") {
                     return (
                       <label
@@ -1021,6 +1224,39 @@ export default function ProfilePage() {
                     );
                   }
                   
+                  if (field.name === "religiosityLevel") {
+                    return (
+                      <label
+                        key={field.name}
+                        className="flex flex-col gap-2 text-sm text-slate-600"
+                      >
+                        <span className="flex items-center gap-1">
+                          {field.label}
+                          {isRequired && <span className="text-rose-500">*</span>}
+                        </span>
+                        <select
+                          value={fieldValue}
+                          onChange={(event) =>
+                            handleChange(field.name, event.target.value)
+                          }
+                          className={`rounded-xl border ${
+                            isRequired && !fieldValue
+                              ? 'border-rose-300 bg-rose-50'
+                              : 'border-slate-200 bg-slate-50'
+                          } px-4 py-3 text-slate-900 focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-100`}
+                          required={isRequired}
+                        >
+                          <option value="">اختر درجة الالتزام</option>
+                          {RELIGIOSITY_OPTIONS.map((level) => (
+                            <option key={level} value={level}>
+                              {level}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    );
+                  }
+
                   if (field.name === "marriageType") {
                     return (
                       <label
@@ -1036,8 +1272,11 @@ export default function ProfilePage() {
                           className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-100"
                         >
                           <option value="">اختر نوع الزواج</option>
-                          <option value="زواج تقليدي">زواج تقليدي</option>
-                          <option value="زواج بشروط خاصة">زواج بشروط خاصة</option>
+                          {MARRIAGE_TYPE_OPTIONS.map((option) => (
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
+                          ))}
                         </select>
                       </label>
                     );
@@ -1058,8 +1297,11 @@ export default function ProfilePage() {
                           className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-100"
                         >
                           <option value="">اختر</option>
-                          <option value="اقبل بالتعدد">اقبل بالتعدد</option>
-                          <option value="لا اقبل بالتعدد">لا اقبل بالتعدد</option>
+                          {POLYGAMY_OPTIONS.map((option) => (
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
+                          ))}
                         </select>
                       </label>
                     );
@@ -1080,8 +1322,11 @@ export default function ProfilePage() {
                           className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-100"
                         >
                           <option value="">اختر</option>
-                          <option value="نعم">نعم</option>
-                          <option value="لا">لا</option>
+                          {COMPATIBILITY_OPTIONS.map((option) => (
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
+                          ))}
                         </select>
                       </label>
                     );

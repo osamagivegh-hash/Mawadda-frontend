@@ -1,0 +1,23 @@
+[
+  { "code": "SA", "name": "السعودية" },
+  { "code": "AE", "name": "الإمارات" },
+  { "code": "KW", "name": "الكويت" },
+  { "code": "QA", "name": "قطر" },
+  { "code": "BH", "name": "البحرين" },
+  { "code": "OM", "name": "عمان" },
+  { "code": "JO", "name": "الأردن" },
+  { "code": "PS", "name": "فلسطين" },
+  { "code": "LB", "name": "لبنان" },
+  { "code": "SY", "name": "سوريا" },
+  { "code": "EG", "name": "مصر" },
+  { "code": "IQ", "name": "العراق" },
+  { "code": "YE", "name": "اليمن" },
+  { "code": "SD", "name": "السودان" },
+  { "code": "MA", "name": "المغرب" },
+  { "code": "TN", "name": "تونس" },
+  { "code": "DZ", "name": "الجزائر" },
+  { "code": "LY", "name": "ليبيا" },
+  { "code": "OTH", "name": "أخرى" }
+]
+
+

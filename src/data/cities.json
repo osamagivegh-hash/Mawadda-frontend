@@ -1,0 +1,33 @@
+[
+  { "countryCode": "SA", "name": "الرياض" },
+  { "countryCode": "SA", "name": "جدة" },
+  { "countryCode": "SA", "name": "الدمام" },
+  { "countryCode": "SA", "name": "مكة المكرمة" },
+  { "countryCode": "SA", "name": "المدينة المنورة" },
+
+  { "countryCode": "AE", "name": "دبي" },
+  { "countryCode": "AE", "name": "أبوظبي" },
+  { "countryCode": "AE", "name": "الشارقة" },
+
+  { "countryCode": "KW", "name": "الكويت" },
+  { "countryCode": "QA", "name": "الدوحة" },
+  { "countryCode": "BH", "name": "المنامة" },
+  { "countryCode": "OM", "name": "مسقط" },
+
+  { "countryCode": "JO", "name": "عمان" },
+  { "countryCode": "PS", "name": "القدس" },
+  { "countryCode": "LB", "name": "بيروت" },
+  { "countryCode": "SY", "name": "دمشق" },
+  { "countryCode": "EG", "name": "القاهرة" },
+  { "countryCode": "EG", "name": "الإسكندرية" },
+
+  { "countryCode": "MA", "name": "الرباط" },
+  { "countryCode": "MA", "name": "الدار البيضاء" },
+  { "countryCode": "TN", "name": "تونس" },
+  { "countryCode": "DZ", "name": "الجزائر" },
+  { "countryCode": "LY", "name": "طرابلس" },
+
+  { "countryCode": "OTH", "name": "مدينة أخرى" }
+]
+
+

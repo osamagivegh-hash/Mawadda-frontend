@@ -6,6 +6,14 @@ import { addFavorite, fetchWithToken, getFavorites } from "@/lib/api";
 import { getStoredAuth } from "@/lib/auth";
 import { useRouter } from "next/navigation";
 
+import countriesData from "@/data/countries.json";
+import citiesData from "@/data/cities.json";
+import educationLevelsData from "@/data/education.json";
+import maritalStatusData from "@/data/marital-status.json";
+import marriageTypesData from "@/data/marriage-type.json";
+import religiosityLevelsData from "@/data/religiosity-level.json";
+import polygamyOptionsData from "@/data/polygamy.json";
+
 type SearchFilters = {
   gender?: string;
   minAge?: string;
@@ -15,8 +23,10 @@ type SearchFilters = {
   countryOfResidence?: string;
   nationality?: string;
   education?: string;
+  occupation?: string;
   maritalStatus?: string;
   religion?: string;
+  religiosityLevel?: string;
   marriageType?: string;
   polygamyAcceptance?: string;
   compatibilityTest?: string;
@@ -70,8 +80,10 @@ const initialFilters: SearchFilters = {
   countryOfResidence: "",
   nationality: "",
   education: "",
+  occupation: "",
   maritalStatus: "",
   religion: "",
+  religiosityLevel: "",
   marriageType: "",
   polygamyAcceptance: "",
   compatibilityTest: "",
@@ -184,6 +196,10 @@ export default function SearchPage() {
         if (activeFilters.education && activeFilters.education.trim().length > 0 && activeFilters.education.trim().toLowerCase() !== 'all') {
           payload.education = activeFilters.education.trim();
         }
+
+        if (activeFilters.occupation && activeFilters.occupation.trim().length > 0 && activeFilters.occupation.trim().toLowerCase() !== 'all') {
+          payload.occupation = activeFilters.occupation.trim();
+        }
         
         if (activeFilters.maritalStatus && activeFilters.maritalStatus.trim().length > 0 && activeFilters.maritalStatus.trim().toLowerCase() !== 'all') {
           payload.maritalStatus = activeFilters.maritalStatus.trim();
@@ -200,6 +216,26 @@ export default function SearchPage() {
           }
         }
         
+        if (activeFilters.religion && activeFilters.religion.trim().length > 0 && activeFilters.religion.trim().toLowerCase() !== 'all') {
+          payload.religion = activeFilters.religion.trim();
+        }
+
+        if (activeFilters.religiosityLevel && activeFilters.religiosityLevel.trim().length > 0 && activeFilters.religiosityLevel.trim().toLowerCase() !== 'all') {
+          payload.religiosityLevel = activeFilters.religiosityLevel.trim();
+        }
+
+        if (activeFilters.marriageType && activeFilters.marriageType.trim().length > 0 && activeFilters.marriageType.trim().toLowerCase() !== 'all') {
+          payload.marriageType = activeFilters.marriageType.trim();
+        }
+
+        if (activeFilters.polygamyAcceptance && activeFilters.polygamyAcceptance.trim().length > 0 && activeFilters.polygamyAcceptance.trim().toLowerCase() !== 'all') {
+          payload.polygamyAcceptance = activeFilters.polygamyAcceptance.trim();
+        }
+
+        if (activeFilters.compatibilityTest && activeFilters.compatibilityTest.trim().length > 0 && activeFilters.compatibilityTest.trim().toLowerCase() !== 'all') {
+          payload.compatibilityTest = activeFilters.compatibilityTest.trim();
+        }
+
         if (activeFilters.hasPhoto === 'true') {
           payload.hasPhoto = 'true';
         }
