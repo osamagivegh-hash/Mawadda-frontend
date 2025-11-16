@@ -126,8 +126,14 @@ export default function ProfilePage() {
       return;
     }
     setAuth(stored);
+
+    const storedProfileId = stored.user.profileId;
+    const endpoint = storedProfileId
+      ? `/profiles/${storedProfileId}`
+      : "/profiles/me";
+
     fetchWithToken<ProfileResponse | null>(
-      `/profiles/me`,
+      endpoint,
       stored.token,
     )
       .then((data) => {
