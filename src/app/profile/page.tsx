@@ -88,6 +88,9 @@ export default function ProfilePage() {
   const router = useRouter();
   const [auth, setAuth] = useState<StoredAuth | null>(null);
   const [profile, setProfile] = useState<ProfileResponse>({});
+  // Keep a snapshot of the profile as loaded from the backend so we can
+  // avoid overwriting existing non-empty values with empty strings on PATCH.
+  const [initialProfile, setInitialProfile] = useState<ProfileResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -167,6 +170,7 @@ export default function ProfilePage() {
           };
           console.log('Formatted profile for display:', formattedProfile);
           setProfile(formattedProfile);
+          setInitialProfile(formattedProfile);
           // Ensure profileId is stored in auth/localStorage for future fast access
           if (formattedProfile.id) {
             setAuth((prevAuth) => {
@@ -194,7 +198,7 @@ export default function ProfilePage() {
         } else {
           // No profile exists yet - initialize all fields as empty
           console.log('No profile found for user');
-          setProfile({
+          const emptyProfile: ProfileResponse = {
             firstName: '',
             lastName: '',
             gender: '',
@@ -213,14 +217,16 @@ export default function ProfilePage() {
             about: '',
             guardianName: '',
             guardianContact: '',
-          });
+          };
+          setProfile(emptyProfile);
+          setInitialProfile(emptyProfile);
         }
       })
       .catch((err) => {
         console.error('Error loading profile:', err);
         console.error('Profile fetch error details:', err instanceof Error ? err.message : err);
-        // On error, initialize all fields as empty
-        setProfile({
+        // On error, initialize all fields as empty (no profile state in DB)
+        const emptyProfile: ProfileResponse = {
           firstName: '',
           lastName: '',
           gender: '',
@@ -239,7 +245,9 @@ export default function ProfilePage() {
           about: '',
           guardianName: '',
           guardianContact: '',
-        });
+        };
+        setProfile(emptyProfile);
+        setInitialProfile(emptyProfile);
       })
       .finally(() => setLoading(false));
   }, [router]);
@@ -357,8 +365,10 @@ export default function ProfilePage() {
       let updated: ProfileResponse;
       
       if (profileExists) {
-        // Update existing profile - send all fields from CURRENT form state (profile, not currentProfile)
-        // Use the current profile state which has all the latest form values
+        // Update existing profile.
+        // IMPORTANT: Only send fields that actually changed compared to the
+        // loaded profile snapshot to avoid overwriting existing data with
+        // empty strings when the user did not modify those fields.
         const payload: Record<string, string> = {};
         
         // List of all profile fields that should be sent
@@ -369,38 +379,61 @@ export default function ProfilePage() {
           'polygamyAcceptance', 'compatibilityTest', 'about', 
           'guardianName', 'guardianContact'
         ];
-        
-        // Send ALL profile fields from current form state (has latest form values)
-        // CRITICAL: Always include ALL fields to ensure nothing is missed
+
+        const baseline = initialProfile ?? {};
+
         profileFields.forEach((fieldName) => {
-          // Use currentFormState which is a snapshot of profile at submit time
-          const value = currentFormState[fieldName];
-          
-          // ALWAYS include every field - never skip any field
-          if (value === undefined || value === null) {
-            // If undefined/null, send empty string
-            payload[fieldName as string] = "";
-          } else if (typeof value === "string") {
-            // For strings, always include (even if empty after trim)
-            const trimmed = value.trim();
-            payload[fieldName as string] = trimmed;
-          } else {
-            // For non-strings (numbers, booleans, etc.), send as string
-            payload[fieldName as string] = String(value);
+          const currentValueRaw = currentFormState[fieldName];
+          const baselineValueRaw = baseline[fieldName];
+
+          const currentValue =
+            typeof currentValueRaw === "string"
+              ? currentValueRaw.trim()
+              : currentValueRaw;
+          const baselineValue =
+            typeof baselineValueRaw === "string"
+              ? baselineValueRaw.trim()
+              : baselineValueRaw;
+
+          // If nothing changed, skip this field entirely so we don't touch it in DB.
+          if (currentValue === baselineValue) {
+            return;
           }
+
+          // If the user explicitly cleared the field (baseline had a value, now empty),
+          // send an empty string to clear it in the database.
+          if (
+            (baselineValue ?? "") !== "" &&
+            (currentValue === "" || currentValue === null || currentValue === undefined)
+          ) {
+            payload[fieldName as string] = "";
+            return;
+          }
+
+          // If the user provided a non-empty value (or changed non-string value),
+          // send the updated value.
+          if (currentValue !== undefined && currentValue !== null) {
+            if (typeof currentValue === "string") {
+              payload[fieldName as string] = currentValue;
+            } else {
+              payload[fieldName as string] = String(currentValue);
+            }
+          }
+          // If both baseline and current are "empty" (undefined/null/""), we already
+          // returned early above when they were equal, so we don't reach here.
         });
+
+        // If there are no changes, avoid sending a PATCH at all.
+        if (Object.keys(payload).length === 0) {
+          setSuccess("لا توجد تغييرات لحفظها.");
+          return;
+        }
         
         // Don't include internal fields like id, user, photoUrl, etc. in update payload
         // These are managed by the backend
         
         console.log('Updating profile - current form state:', currentFormState);
-        console.log('Updating profile with payload:', payload);
-        console.log('Payload keys count:', Object.keys(payload).length);
-        console.log('Payload keys:', Object.keys(payload));
-        console.log('Fields with values:', profileFields.filter(f => {
-          const val = currentFormState[f];
-          return val !== undefined && val !== null && (typeof val !== 'string' || val.trim().length > 0);
-        }));
+        console.log('Updating profile with payload (diff only):', payload);
         
         updated = await fetchWithToken<ProfileResponse>(
           `/profiles/${auth.user.id}`,
