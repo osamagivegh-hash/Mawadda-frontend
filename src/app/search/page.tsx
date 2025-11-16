@@ -340,10 +340,6 @@ export default function SearchPage() {
     }
   }, [token, loadFavorites]);
 
-  if (!token) {
-    return null;
-  }
-
   // Helper function to check if required fields are filled
   const isSearchButtonEnabled = (): boolean => {
     const hasGender = Boolean(filters.gender && filters.gender.trim().length > 0);
@@ -422,6 +418,35 @@ export default function SearchPage() {
       setError(err instanceof Error ? err.message : "تعذر إضافة العضو للمفضلة");
     }
   };
+
+  if (!token) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-accent-50 via-white to-primary-50 px-4">
+        <div className="max-w-md w-full rounded-3xl border border-slate-100 bg-white p-8 shadow-lg text-center">
+          <h1 className="text-2xl font-bold text-secondary-900 mb-4">
+            تحتاج إلى تسجيل الدخول لاستخدام البحث
+          </h1>
+          <p className="text-sm text-slate-600 mb-6">
+            يرجى تسجيل الدخول للوصول إلى صفحة البحث عن الشريك والاستفادة من جميع المزايا.
+          </p>
+          <div className="flex flex-col gap-3">
+            <Link
+              href="/auth/login"
+              className="rounded-full bg-accent-600 px 6 py-3 text-sm font-medium text-white hover:bg-accent-700 transition"
+            >
+              تسجيل الدخول
+            </Link>
+            <Link
+              href="/"
+              className="text-sm text-secondary-600 hover:text-secondary-500"
+            >
+              العودة إلى الصفحة الرئيسية
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-accent-50 via-white to-primary-50 py-12">
