@@ -142,32 +142,13 @@ export default function ProfilePage() {
       .then((data) => {
         console.log('Profile loaded from backend:', data);
         if (data) {
-          // Convert dateOfBirth to YYYY-MM-DD format for date input
-          // Initialize all profile fields to ensure they're always in state
+          // Start from raw backend object and only adjust dateOfBirth for the input.
+          const raw = data as ProfileResponse;
           const formattedProfile: ProfileResponse = {
-          // Initialize all fields with empty strings if not provided
-          firstName: '',
-          lastName: '',
-          gender: '',
-          nationality: '',
-          city: '',
-          countryOfResidence: '',
-          education: '',
-          occupation: '',
-          religiosityLevel: '',
-          religion: '',
-          maritalStatus: '',
-          marriageType: '',
-          polygamyAcceptance: '',
-          compatibilityTest: '',
-          about: '',
-          guardianName: '',
-          guardianContact: '',
-          // Override with data from backend
-          ...data,
-          // Format dateOfBirth for date input (set after spread to override)
-          dateOfBirth: data.dateOfBirth ? formatDateForInput(data.dateOfBirth) : '',
+            ...raw,
+            dateOfBirth: raw.dateOfBirth ? formatDateForInput(raw.dateOfBirth) : '',
           };
+
           console.log('Formatted profile for display:', formattedProfile);
           setProfile(formattedProfile);
           setInitialProfile(formattedProfile);
