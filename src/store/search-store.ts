@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { fetchWithToken } from "@/lib/api";
-import { useAuthStore } from "./auth-store";
+import { useAuthStore } from "@/store/auth-store";
 
 export type SearchFilters = {
   gender?: string;
@@ -102,27 +102,22 @@ export const useSearchStore = create<SearchState & SearchActions>()(
 
       setFilter(key, value) {
         set((state) => ({
-          filters: {
-            ...state.filters,
-            [key]: value,
-          },
+          filters: { ...state.filters, [key]: value },
         }));
       },
 
       resetFilters() {
-        set({
-          filters: initialFilters,
-          results: [],
-          error: null,
-        });
+        console.log("SEARCH STORE: resetFilters");
+        set({ filters: initialFilters, results: [], error: null });
       },
 
       setResults(results) {
-        console.log("SEARCH STORE: setResults", results);
+        console.log("SEARCH STORE: setResults", results.length, "items");
         set({ results });
       },
 
       setError(error) {
+        console.log("SEARCH STORE: setError", error);
         set({ error });
       },
 
@@ -130,35 +125,30 @@ export const useSearchStore = create<SearchState & SearchActions>()(
         const { token } = useAuthStore.getState();
         const { filters } = get();
 
+        console.log("SEARCH STORE: performSearch called");
+        console.log("SEARCH FILTERS:", filters);
+
         if (!token) {
           set({ error: "يجب تسجيل الدخول لإجراء البحث" });
           return;
         }
 
-        const activeFilters = filters;
+        const gender = filters.gender?.trim();
+        const minAgeValue = filters.minAge ? parseInt(filters.minAge) : undefined;
+        const maxAgeValue = filters.maxAge ? parseInt(filters.maxAge) : undefined;
 
-        const gender = activeFilters.gender?.trim();
-        const minAgeValue = activeFilters.minAge
-          ? parseInt(activeFilters.minAge)
-          : undefined;
-        const maxAgeValue = activeFilters.maxAge
-          ? parseInt(activeFilters.maxAge)
-          : undefined;
-
+        // Validate required fields
         if (!gender) {
-          set({
-            error: "يجب اختيار الجنس للبحث (مطلوب)",
-          });
+          set({ error: "يجب اختيار الجنس للبحث (مطلوب)" });
           return;
         }
 
         if (!minAgeValue && !maxAgeValue) {
-          set({
-            error: "يجب إدخال العمر (من أو إلى) للبحث (مطلوب)",
-          });
+          set({ error: "يجب إدخال العمر (من أو إلى) للبحث (مطلوب)" });
           return;
         }
 
+        // Validate age range
         if (
           minAgeValue !== undefined &&
           maxAgeValue !== undefined &&
@@ -171,7 +161,8 @@ export const useSearchStore = create<SearchState & SearchActions>()(
             minAgeValue > maxAgeValue)
         ) {
           set({
-            error: "نطاق العمر غير صحيح. يجب أن يكون بين 18 و 80 ولا يكون الأدنى أكبر من الأعلى.",
+            error:
+              "نطاق العمر غير صحيح. يجب أن يكون بين 18 و 80 ولا يكون الأدنى أكبر من الأعلى.",
           });
           return;
         }
@@ -179,6 +170,7 @@ export const useSearchStore = create<SearchState & SearchActions>()(
         set({ loading: true, error: null });
 
         try {
+          // Build payload for API call
           const payload: Record<string, string | number> = {};
 
           payload.gender = gender;
@@ -189,9 +181,14 @@ export const useSearchStore = create<SearchState & SearchActions>()(
             payload.maxAge = maxAgeValue;
           }
 
+          // Helper to add non-empty optional filters
           const pushIfValue = (key: keyof SearchFilters) => {
-            const val = activeFilters[key];
-            if (val && val.trim().length > 0 && val.trim().toLowerCase() !== "all") {
+            const val = filters[key];
+            if (
+              val &&
+              val.trim().length > 0 &&
+              val.trim().toLowerCase() !== "all"
+            ) {
               payload[key] = val.trim();
             }
           };
@@ -210,17 +207,18 @@ export const useSearchStore = create<SearchState & SearchActions>()(
           pushIfValue("keyword");
           pushIfValue("memberId");
 
-          if (activeFilters.height && activeFilters.height.trim().length > 0) {
-            const h = parseInt(activeFilters.height);
+          if (filters.height && filters.height.trim().length > 0) {
+            const h = parseInt(filters.height);
             if (!isNaN(h) && h >= 100 && h <= 250) {
               payload.height = h;
             }
           }
 
-          if (activeFilters.hasPhoto === "true") {
+          if (filters.hasPhoto === "true") {
             payload.hasPhoto = "true";
           }
 
+          // Build query string
           const params = new URLSearchParams();
           Object.entries(payload).forEach(([key, value]) => {
             params.append(key, String(value));
@@ -228,7 +226,6 @@ export const useSearchStore = create<SearchState & SearchActions>()(
 
           const endpoint = `/search?${params.toString()}`;
 
-          console.log("SEARCH STORE: filters", activeFilters);
           console.log("SEARCH STORE: payload", payload);
           console.log("SEARCH STORE: endpoint", endpoint);
 
@@ -249,7 +246,9 @@ export const useSearchStore = create<SearchState & SearchActions>()(
           set({
             results: [],
             error:
-              err instanceof Error ? err.message : "حدث خطأ في البحث، حاول مرة أخرى.",
+              err instanceof Error
+                ? err.message
+                : "حدث خطأ في البحث، حاول مرة أخرى.",
           });
         } finally {
           set({ loading: false });
@@ -265,5 +264,3 @@ export const useSearchStore = create<SearchState & SearchActions>()(
     },
   ),
 );
-
-

@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { addFavorite, getFavorites, removeFavorite } from "@/lib/api";
-import { useAuthStore } from "./auth-store";
+import { useAuthStore } from "@/store/auth-store";
 
 export type FavoriteEntry = {
   id: string;
@@ -30,6 +30,7 @@ type FavoritesActions = {
   addFavorite: (targetUserId: string) => Promise<void>;
   removeFavorite: (targetUserId: string) => Promise<void>;
   toggleFavorite: (targetUserId: string) => Promise<void>;
+  isFavorite: (targetUserId: string) => boolean;
 };
 
 export const useFavoritesStore = create<FavoritesState & FavoritesActions>()(
@@ -42,6 +43,7 @@ export const useFavoritesStore = create<FavoritesState & FavoritesActions>()(
       async loadFavorites() {
         const { token } = useAuthStore.getState();
         if (!token) {
+          console.log("FAVORITES STORE: no token, clearing favorites");
           set({ favorites: [], loading: false, error: null });
           return;
         }
@@ -51,7 +53,7 @@ export const useFavoritesStore = create<FavoritesState & FavoritesActions>()(
         try {
           const data = await getFavorites(token);
           const list = Array.isArray(data) ? (data as FavoriteEntry[]) : [];
-          console.log("FAVORITES STORE: loaded", list);
+          console.log("FAVORITES STORE: loaded", list.length, "favorites");
           set({ favorites: list, loading: false, error: null });
         } catch (err) {
           console.error("FAVORITES STORE loadFavorites error:", err);
@@ -65,11 +67,16 @@ export const useFavoritesStore = create<FavoritesState & FavoritesActions>()(
 
       async addFavorite(targetUserId) {
         const { token } = useAuthStore.getState();
-        if (!token) return;
+        if (!token) {
+          console.log("FAVORITES STORE: no token for addFavorite");
+          return;
+        }
+
+        console.log("FAVORITES STORE: adding favorite", targetUserId);
 
         try {
           await addFavorite(token, targetUserId);
-          // reload list to stay in sync with backend
+          // Reload favorites to get updated list from server
           await get().loadFavorites();
         } catch (err) {
           console.error("FAVORITES STORE addFavorite error:", err);
@@ -82,11 +89,16 @@ export const useFavoritesStore = create<FavoritesState & FavoritesActions>()(
 
       async removeFavorite(targetUserId) {
         const { token } = useAuthStore.getState();
-        if (!token) return;
+        if (!token) {
+          console.log("FAVORITES STORE: no token for removeFavorite");
+          return;
+        }
+
+        console.log("FAVORITES STORE: removing favorite", targetUserId);
 
         try {
           await removeFavorite(token, targetUserId);
-          // optimistically filter out
+          // Remove from local state immediately for better UX
           set((state) => ({
             favorites: state.favorites.filter(
               (f) => f.target.id !== targetUserId,
@@ -96,7 +108,9 @@ export const useFavoritesStore = create<FavoritesState & FavoritesActions>()(
           console.error("FAVORITES STORE removeFavorite error:", err);
           set({
             error:
-              err instanceof Error ? err.message : "تعذر إزالة العضو من المفضلة",
+              err instanceof Error
+                ? err.message
+                : "تعذر إزالة العضو من المفضلة",
           });
         }
       },
@@ -105,11 +119,18 @@ export const useFavoritesStore = create<FavoritesState & FavoritesActions>()(
         const { favorites } = get();
         const exists = favorites.some((f) => f.target.id === targetUserId);
 
+        console.log("FAVORITES STORE: toggleFavorite", targetUserId, "exists:", exists);
+
         if (exists) {
           await get().removeFavorite(targetUserId);
         } else {
           await get().addFavorite(targetUserId);
         }
+      },
+
+      isFavorite(targetUserId) {
+        const { favorites } = get();
+        return favorites.some((f) => f.target.id === targetUserId);
       },
     }),
     {
@@ -120,5 +141,3 @@ export const useFavoritesStore = create<FavoritesState & FavoritesActions>()(
     },
   ),
 );
-
-

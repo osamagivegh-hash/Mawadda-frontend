@@ -1,10 +1,11 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState, useCallback } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { addFavorite, fetchWithToken, getFavorites } from "@/lib/api";
-import { getStoredAuth } from "@/lib/auth";
 import { useRouter } from "next/navigation";
+import { useAuthStore } from "@/store/auth-store";
+import { useSearchStore, type SearchFilters } from "@/store/search-store";
+import { useFavoritesStore } from "@/store/favorites-store";
 
 import countriesData from "@/data/countries.json";
 import citiesData from "@/data/cities.json";
@@ -14,412 +15,88 @@ import marriageTypesData from "@/data/marriage-type.json";
 import religiosityLevelsData from "@/data/religiosity-level.json";
 import polygamyOptionsData from "@/data/polygamy.json";
 
-type SearchFilters = {
-  gender?: string;
-  minAge?: string;
-  maxAge?: string;
-  city?: string;
-  height?: string;
-  countryOfResidence?: string;
-  nationality?: string;
-  education?: string;
-  occupation?: string;
-  maritalStatus?: string;
-  religion?: string;
-  religiosityLevel?: string;
-  marriageType?: string;
-  polygamyAcceptance?: string;
-  compatibilityTest?: string;
-  hasPhoto?: string;
-  keyword?: string;
-  memberId?: string;
-};
-
-type SearchResult = {
-  user: {
-    id: string;
-    email: string;
-    role: string;
-    status: string;
-    memberId: string;
-  };
-  profile: {
-    id: string;
-    firstName?: string;
-    lastName?: string;
-    gender?: string;
-    age?: number;
-    nationality?: string;
-    city?: string;
-    countryOfResidence?: string;
-    education?: string;
-    occupation?: string;
-    maritalStatus?: string;
-    marriageType?: string;
-    polygamyAcceptance?: string;
-    compatibilityTest?: string;
-    religion?: string;
-    religiosityLevel?: string;
-    about?: string;
-    photoUrl?: string;
-    dateOfBirth?: string;
-    height?: number;
-  };
-};
-
-type FavoriteEntry = {
-  target: { id: string };
-};
-
-const initialFilters: SearchFilters = {
-  gender: "",
-  minAge: "",
-  maxAge: "",
-  city: "",
-  height: "",
-  countryOfResidence: "",
-  nationality: "",
-  education: "",
-  occupation: "",
-  maritalStatus: "",
-  religion: "",
-  religiosityLevel: "",
-  marriageType: "",
-  polygamyAcceptance: "",
-  compatibilityTest: "",
-  hasPhoto: "",
-  keyword: "",
-  memberId: "",
-};
-
 export default function SearchPage() {
   const router = useRouter();
-  const [token, setToken] = useState<string | null>(null);
-  const [filters, setFilters] = useState<SearchFilters>(initialFilters);
-  const [results, setResults] = useState<SearchResult[]>([]);
-  const [favoritesIds, setFavoritesIds] = useState<string[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { isAuthenticated, loading: authLoading } = useAuthStore();
+  const {
+    filters,
+    results,
+    loading,
+    error,
+    setFilter,
+    resetFilters,
+    performSearch,
+  } = useSearchStore();
+  const {
+    favorites,
+    loadFavorites,
+    toggleFavorite,
+    isFavorite,
+  } = useFavoritesStore();
   const [feedback, setFeedback] = useState<string | null>(null);
 
-  const loadFavorites = useCallback(async () => {
-    if (!token) return;
-    try {
-      const favorites = await getFavorites(token);
-      if (Array.isArray(favorites)) {
-        setFavoritesIds(favorites.map((item: FavoriteEntry) => item.target.id));
-      }
-    } catch {
-      // نتجاهل الخطأ هنا ونعتمد على طلبات لاحقة
-    }
-  }, [token]);
-
-  const handleSearch = useCallback(
-    async (customFilters?: SearchFilters) => {
-      if (!token) return;
-      
-      const activeFilters = customFilters ?? filters;
-      
-      // Validate MANDATORY fields (gender and age are required)
-      if (!activeFilters.gender || activeFilters.gender.trim().length === 0) {
-        setError("يجب اختيار الجنس للبحث (مطلوب)");
-        setLoading(false);
-        setFeedback(null);
-        return;
-      }
-
-      const minAgeValue = activeFilters.minAge ? parseInt(activeFilters.minAge) : undefined;
-      const maxAgeValue = activeFilters.maxAge ? parseInt(activeFilters.maxAge) : undefined;
-
-      // At least one age value (minAge or maxAge) is required
-      if (!minAgeValue && !maxAgeValue) {
-        setError("يجب إدخال العمر (من أو إلى) للبحث (مطلوب)");
-        setLoading(false);
-        setFeedback(null);
-        return;
-      }
-
-      // Validate age range if both are provided
-      if (minAgeValue !== undefined && maxAgeValue !== undefined) {
-        if (isNaN(minAgeValue) || isNaN(maxAgeValue)) {
-          setError("يجب إدخال أرقام صحيحة للعمر");
-          setLoading(false);
-          return;
-        }
-        if (minAgeValue < 18 || minAgeValue > 80 || maxAgeValue < 18 || maxAgeValue > 80) {
-          setError("يجب أن يكون العمر بين 18 و 80 سنة");
-          setLoading(false);
-          return;
-        }
-        if (minAgeValue > maxAgeValue) {
-          setError("العمر الأدنى لا يمكن أن يكون أكبر من العمر الأقصى");
-          setLoading(false);
-          return;
-        }
-      }
-
-      setLoading(true);
-      setError(null);
-      setFeedback(null);
-      
-      try {
-        console.log('\n========== FRONTEND SEARCH START ==========');
-        console.log('Active filters before processing:', activeFilters);
-        
-        // Build payload object - only include defined values
-        const payload: Record<string, string | number> = {};
-        
-        // Add required fields (MANDATORY)
-        // Gender: backend will normalize Arabic/corrupted values
-        if (activeFilters.gender) {
-          // Trim whitespace - backend handles normalization of Arabic values
-          payload.gender = activeFilters.gender.trim();
-        }
-        
-        if (minAgeValue !== undefined && !isNaN(minAgeValue)) {
-          payload.minAge = minAgeValue;
-        }
-        
-        if (maxAgeValue !== undefined && !isNaN(maxAgeValue)) {
-          payload.maxAge = maxAgeValue;
-        }
-        
-        // Add optional fields only if they have valid values
-        if (activeFilters.city && activeFilters.city.trim().length > 0 && activeFilters.city.trim().toLowerCase() !== 'all') {
-          payload.city = activeFilters.city.trim();
-        }
-        
-        if (activeFilters.nationality && activeFilters.nationality.trim().length > 0 && activeFilters.nationality.trim().toLowerCase() !== 'all') {
-          payload.nationality = activeFilters.nationality.trim();
-        }
-        
-        if (activeFilters.education && activeFilters.education.trim().length > 0 && activeFilters.education.trim().toLowerCase() !== 'all') {
-          payload.education = activeFilters.education.trim();
-        }
-
-        if (activeFilters.occupation && activeFilters.occupation.trim().length > 0 && activeFilters.occupation.trim().toLowerCase() !== 'all') {
-          payload.occupation = activeFilters.occupation.trim();
-        }
-        
-        if (activeFilters.maritalStatus && activeFilters.maritalStatus.trim().length > 0 && activeFilters.maritalStatus.trim().toLowerCase() !== 'all') {
-          payload.maritalStatus = activeFilters.maritalStatus.trim();
-        }
-        
-        if (activeFilters.countryOfResidence && activeFilters.countryOfResidence.trim().length > 0 && activeFilters.countryOfResidence.trim().toLowerCase() !== 'all') {
-          payload.countryOfResidence = activeFilters.countryOfResidence.trim();
-        }
-        
-        if (activeFilters.height && activeFilters.height.trim().length > 0) {
-          const heightValue = parseInt(activeFilters.height);
-          if (!isNaN(heightValue) && heightValue >= 100 && heightValue <= 250) {
-            payload.height = heightValue;
-          }
-        }
-        
-        if (activeFilters.religion && activeFilters.religion.trim().length > 0 && activeFilters.religion.trim().toLowerCase() !== 'all') {
-          payload.religion = activeFilters.religion.trim();
-        }
-
-        if (activeFilters.religiosityLevel && activeFilters.religiosityLevel.trim().length > 0 && activeFilters.religiosityLevel.trim().toLowerCase() !== 'all') {
-          payload.religiosityLevel = activeFilters.religiosityLevel.trim();
-        }
-
-        if (activeFilters.marriageType && activeFilters.marriageType.trim().length > 0 && activeFilters.marriageType.trim().toLowerCase() !== 'all') {
-          payload.marriageType = activeFilters.marriageType.trim();
-        }
-
-        if (activeFilters.polygamyAcceptance && activeFilters.polygamyAcceptance.trim().length > 0 && activeFilters.polygamyAcceptance.trim().toLowerCase() !== 'all') {
-          payload.polygamyAcceptance = activeFilters.polygamyAcceptance.trim();
-        }
-
-        if (activeFilters.compatibilityTest && activeFilters.compatibilityTest.trim().length > 0 && activeFilters.compatibilityTest.trim().toLowerCase() !== 'all') {
-          payload.compatibilityTest = activeFilters.compatibilityTest.trim();
-        }
-
-        if (activeFilters.hasPhoto === 'true') {
-          payload.hasPhoto = 'true';
-        }
-        
-        if (activeFilters.keyword && activeFilters.keyword.trim().length > 0) {
-          payload.keyword = activeFilters.keyword.trim();
-        }
-        
-        if (activeFilters.memberId && activeFilters.memberId.trim().length > 0) {
-          payload.memberId = activeFilters.memberId.trim();
-        }
-        
-        // Build query string from payload
-        const queryParams = new URLSearchParams();
-        Object.entries(payload).forEach(([key, value]) => {
-          queryParams.append(key, String(value));
-        });
-        
-        const queryString = queryParams.toString();
-        const endpoint = `/search?${queryString}`;
-        
-        // ==================== DEBUG LOGGING ====================
-        console.log('SEARCH PAYLOAD:', JSON.stringify(payload, null, 2));
-        console.log('Search endpoint:', endpoint);
-        console.log('Query string:', queryString);
-        console.log('Query params object:', Object.fromEntries(queryParams.entries()));
-        // ==================== END DEBUG ====================
-        
-        const data = await fetchWithToken<SearchResult[]>(endpoint, token);
-        console.log('Search response:', data);
-        console.log('Response type:', Array.isArray(data) ? 'array' : typeof data);
-        console.log('Response length:', Array.isArray(data) ? data.length : 'N/A');
-        console.log('========== FRONTEND SEARCH END ==========\n');
-        
-        if (Array.isArray(data)) {
-          setResults(data);
-          setError(null); // Clear any previous errors
-          
-          if (data.length === 0) {
-            setFeedback("لم يتم العثور على نتائج مطابقة لمعايير البحث. جرب معايير مختلفة أو قم بإزالة بعض الفلاتر الاختيارية.");
-          } else {
-            setFeedback(`✅ تم العثور على ${data.length} ${data.length === 1 ? 'نتيجة' : 'نتائج'}`);
-          }
-        } else {
-          setResults([]);
-          setError("استجابة غير صحيحة من الخادم. يرجى المحاولة مرة أخرى.");
-          setFeedback(null);
-        }
-        
-      } catch (err) {
-        console.error("Search error:", err);
-        
-        // Handle API errors with better error messages
-        // Backend throws BadRequestException with messages like:
-        // - "Gender is required for search"
-        // - "Age range (minAge or maxAge) is required for search"
-        // - "Minimum age cannot be greater than maximum age"
-        // - "Invalid gender value: ..."
-        let errorMessage = "حدث خطأ غير متوقع";
-        
-        if (err instanceof Error) {
-          const message = err.message;
-          errorMessage = message;
-          
-          // Map backend error messages to user-friendly Arabic messages
-          if (message.includes("Gender is required") || message.includes("الجنس مطلوب")) {
-            errorMessage = "يجب اختيار الجنس للبحث (مطلوب)";
-          } else if (message.includes("Age range") || message.includes("العمر مطلوب")) {
-            errorMessage = "يجب إدخال العمر (من أو إلى) للبحث (مطلوب)";
-          } else if (message.includes("Minimum age cannot be greater") || message.includes("العمر الأدنى")) {
-            errorMessage = "العمر الأدنى لا يمكن أن يكون أكبر من العمر الأقصى";
-          } else if (message.includes("Invalid gender value")) {
-            errorMessage = "قيمة الجنس غير صحيحة. يجب أن تكون \"male\" أو \"female\" أو \"ذكر\" أو \"أنثى\"";
-          }
-        }
-        
-        setError(`خطأ في البحث: ${errorMessage}`);
-        setResults([]);
-        setFeedback(null);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [filters, token],
-  );
-
-  // Load token from localStorage on mount (client-side only)
+  // Load favorites when authenticated
   useEffect(() => {
-    const storedAuth = getStoredAuth();
-    const authToken = storedAuth?.token ?? null;
-    setToken(authToken);
-    
-    if (!authToken) {
-      router.push("/auth/login");
-    }
-  }, [router]);
-
-  // Load favorites when token is available
-  useEffect(() => {
-    if (token) {
+    if (isAuthenticated) {
       void loadFavorites();
     }
-  }, [token, loadFavorites]);
+  }, [isAuthenticated, loadFavorites]);
 
-  // Helper function to check if required fields are filled
-  const isSearchButtonEnabled = (): boolean => {
-    const hasGender = Boolean(filters.gender && filters.gender.trim().length > 0);
-    const minAgeValue = filters.minAge ? parseInt(filters.minAge) : undefined;
-    const maxAgeValue = filters.maxAge ? parseInt(filters.maxAge) : undefined;
-    const hasAge = (minAgeValue !== undefined && !isNaN(minAgeValue)) || 
-                   (maxAgeValue !== undefined && !isNaN(maxAgeValue));
-    
-    return hasGender && hasAge && !loading;
-  };
+  // Structured data options
+  const COUNTRY_OPTIONS = useMemo(
+    () => countriesData as { code: string; name: string }[],
+    [],
+  );
+  const CITY_OPTIONS = useMemo(
+    () => citiesData as { countryCode: string; name: string }[],
+    [],
+  );
+  const EDUCATION_OPTIONS = useMemo(
+    () => educationLevelsData as string[],
+    [],
+  );
+  const MARITAL_STATUS_OPTIONS = useMemo(
+    () => maritalStatusData as string[],
+    [],
+  );
+  const MARRIAGE_TYPE_OPTIONS = useMemo(
+    () => marriageTypesData as string[],
+    [],
+  );
+  const RELIGIOSITY_OPTIONS = useMemo(
+    () => religiosityLevelsData as string[],
+    [],
+  );
+  const POLYGAMY_OPTIONS = useMemo(
+    () => polygamyOptionsData as string[],
+    [],
+  );
 
-  const updateFilter = (name: keyof SearchFilters, value: string) => {
-    setFilters((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
-  const clearFilters = () => {
-    setFilters(initialFilters);
-    setError(null);
-    setFeedback(null);
-    setResults([]);
-  };
-
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    
-    // Validate MANDATORY fields before submitting
-    if (!filters.gender || filters.gender.trim().length === 0) {
-      setError("يجب اختيار الجنس للبحث (مطلوب)");
-      setFeedback(null);
-      return;
+  const availableCities = useMemo(() => {
+    if (!filters.countryOfResidence) {
+      return CITY_OPTIONS;
     }
+    const country = COUNTRY_OPTIONS.find(
+      (c) => c.name === filters.countryOfResidence,
+    );
+    if (!country) return CITY_OPTIONS;
+    return CITY_OPTIONS.filter((c) => c.countryCode === country.code);
+  }, [CITY_OPTIONS, COUNTRY_OPTIONS, filters.countryOfResidence]);
 
-    const minAgeValue = filters.minAge ? parseInt(filters.minAge) : undefined;
-    const maxAgeValue = filters.maxAge ? parseInt(filters.maxAge) : undefined;
+  // Show loading screen while auth is hydrating
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-accent-50 via-white to-primary-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-accent-600 border-t-transparent mx-auto mb-4"></div>
+          <p className="text-sm text-slate-600">جاري التحميل...</p>
+        </div>
+      </div>
+    );
+  }
 
-    // At least one age value (minAge or maxAge) is required
-    if (!minAgeValue && !maxAgeValue) {
-      setError("يجب إدخال العمر (من أو إلى) للبحث (مطلوب)");
-      setFeedback(null);
-      return;
-    }
-
-    // Validate age range if both are provided
-    if (minAgeValue !== undefined && maxAgeValue !== undefined) {
-      if (isNaN(minAgeValue) || isNaN(maxAgeValue)) {
-        setError("يجب إدخال أرقام صحيحة للعمر");
-        setFeedback(null);
-        return;
-      }
-      if (minAgeValue < 18 || minAgeValue > 80 || maxAgeValue < 18 || maxAgeValue > 80) {
-        setError("يجب أن يكون العمر بين 18 و 80 سنة");
-        setFeedback(null);
-        return;
-      }
-      if (minAgeValue > maxAgeValue) {
-        setError("العمر الأدنى لا يمكن أن يكون أكبر من العمر الأقصى");
-        setFeedback(null);
-        return;
-      }
-    }
-
-    await handleSearch();
-  };
-
-  const handleAddFavorite = async (targetUserId: string) => {
-    if (!token) return;
-    try {
-      setFeedback(null);
-      await addFavorite(token, targetUserId);
-      setFavoritesIds((prev) => Array.from(new Set([...prev, targetUserId])));
-      setFeedback("تمت إضافة العضو إلى المفضلة");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "تعذر إضافة العضو للمفضلة");
-    }
-  };
-
-  if (!token) {
+  // Show login required if not authenticated
+  if (!isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-accent-50 via-white to-primary-50 px-4">
         <div className="max-w-md w-full rounded-3xl border border-slate-100 bg-white p-8 shadow-lg text-center">
@@ -432,7 +109,7 @@ export default function SearchPage() {
           <div className="flex flex-col gap-3">
             <Link
               href="/auth/login"
-              className="rounded-full bg-accent-600 px 6 py-3 text-sm font-medium text-white hover:bg-accent-700 transition"
+              className="rounded-full bg-accent-600 px-6 py-3 text-sm font-medium text-white hover:bg-accent-700 transition"
             >
               تسجيل الدخول
             </Link>
@@ -447,6 +124,48 @@ export default function SearchPage() {
       </div>
     );
   }
+
+  // Helper function to check if required fields are filled
+  const isSearchButtonEnabled = (): boolean => {
+    const hasGender = Boolean(filters.gender && filters.gender.trim().length > 0);
+    const minAgeValue = filters.minAge ? parseInt(filters.minAge) : undefined;
+    const maxAgeValue = filters.maxAge ? parseInt(filters.maxAge) : undefined;
+    const hasAge = (minAgeValue !== undefined && !isNaN(minAgeValue)) || 
+                   (maxAgeValue !== undefined && !isNaN(maxAgeValue));
+    
+    return hasGender && hasAge && !loading;
+  };
+
+  const updateFilter = (name: keyof SearchFilters, value: string) => {
+    setFilter(name, value);
+  };
+
+  const clearFilters = () => {
+    resetFilters();
+    setFeedback(null);
+  };
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setFeedback(null);
+    
+    await performSearch();
+    
+    // Set feedback based on results
+    const currentResults = useSearchStore.getState().results;
+    const currentError = useSearchStore.getState().error;
+    
+    if (currentError) {
+      // Error is already set in store, no need to set feedback
+      return;
+    }
+    
+    if (currentResults.length === 0) {
+      setFeedback("لم يتم العثور على نتائج مطابقة لمعايير البحث. جرب معايير مختلفة أو قم بإزالة بعض الفلاتر الاختيارية.");
+    } else {
+      setFeedback(`✅ تم العثور على ${currentResults.length} ${currentResults.length === 1 ? 'نتيجة' : 'نتائج'}`);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-accent-50 via-white to-primary-50 py-12">
@@ -513,13 +232,18 @@ export default function SearchPage() {
               {/* المدينة */}
               <label className="flex flex-col gap-2 text-sm text-slate-600">
                 المدينة
-                <input
-                  type="text"
+                <select
                   value={filters.city}
                   onChange={(event) => updateFilter("city", event.target.value)}
                   className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-slate-900 focus:border-accent-400 focus:outline-none focus:ring-2 focus:ring-accent-100"
-                  placeholder="الرياض، جدة، دبي..."
-                />
+                >
+                  <option value="">كل الخيارات</option>
+                  {availableCities.map((city) => (
+                    <option key={`${city.countryCode}-${city.name}`} value={city.name}>
+                      {city.name}
+                    </option>
+                  ))}
+                </select>
               </label>
 
               {/* الطول */}
@@ -545,25 +269,11 @@ export default function SearchPage() {
                   className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-slate-900 focus:border-accent-400 focus:outline-none focus:ring-2 focus:ring-accent-100"
                 >
                   <option value="">كل الخيارات</option>
-                  <option value="السعودية">السعودية</option>
-                  <option value="الإمارات">الإمارات</option>
-                  <option value="الكويت">الكويت</option>
-                  <option value="قطر">قطر</option>
-                  <option value="البحرين">البحرين</option>
-                  <option value="عمان">عمان</option>
-                  <option value="الأردن">الأردن</option>
-                  <option value="لبنان">لبنان</option>
-                  <option value="سوريا">سوريا</option>
-                  <option value="مصر">مصر</option>
-                  <option value="فلسطين المحتلة">فلسطين المحتلة</option>
-                  <option value="العراق">العراق</option>
-                  <option value="اليمن">اليمن</option>
-                  <option value="السودان">السودان</option>
-                  <option value="المغرب">المغرب</option>
-                  <option value="تونس">تونس</option>
-                  <option value="الجزائر">الجزائر</option>
-                  <option value="ليبيا">ليبيا</option>
-                  <option value="أخرى">أخرى</option>
+                  {COUNTRY_OPTIONS.map((country) => (
+                    <option key={country.code} value={country.name}>
+                      {country.name}
+                    </option>
+                  ))}
                 </select>
               </label>
 
@@ -576,14 +286,11 @@ export default function SearchPage() {
                   className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-slate-900 focus:border-accent-400 focus:outline-none focus:ring-2 focus:ring-accent-100"
                 >
                   <option value="">كل الخيارات</option>
-                  <option value="غير متعلم">غير متعلم</option>
-                  <option value="ابتدائي">ابتدائي</option>
-                  <option value="متوسط">متوسط</option>
-                  <option value="ثانوي">ثانوي</option>
-                  <option value="دبلوم">دبلوم</option>
-                  <option value="بكالوريوس">بكالوريوس</option>
-                  <option value="ماجستير">ماجستير</option>
-                  <option value="دكتوراه">دكتوراه</option>
+                  {EDUCATION_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
                 </select>
               </label>
 
@@ -610,8 +317,11 @@ export default function SearchPage() {
                   className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-slate-900 focus:border-accent-400 focus:outline-none focus:ring-2 focus:ring-accent-100"
                 >
                   <option value="">كل الخيارات</option>
-                  <option value="اقبل بالتعدد">اقبل بالتعدد</option>
-                  <option value="لا اقبل بالتعدد">لا اقبل بالتعدد</option>
+                  {POLYGAMY_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
                 </select>
               </label>
             </div>
@@ -641,15 +351,11 @@ export default function SearchPage() {
                   className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-slate-900 focus:border-accent-400 focus:outline-none focus:ring-2 focus:ring-accent-100"
                 >
                   <option value="">كل الخيارات</option>
-                  <option value="السعودية">السعودية</option>
-                  <option value="فلسطين المحتلة">فلسطين المحتلة</option>
-                  <option value="الأردن">الأردن</option>
-                  <option value="سوريا">سوريا</option>
-                  <option value="لبنان">لبنان</option>
-                  <option value="مصر">مصر</option>
-                  <option value="العراق">العراق</option>
-                  <option value="اليمن">اليمن</option>
-                  <option value="أخرى">أخرى</option>
+                  {COUNTRY_OPTIONS.map((country) => (
+                    <option key={country.code} value={country.name}>
+                      {country.name}
+                    </option>
+                  ))}
                 </select>
               </label>
 
@@ -662,12 +368,11 @@ export default function SearchPage() {
                   className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-slate-900 focus:border-accent-400 focus:outline-none focus:ring-2 focus:ring-accent-100"
                 >
                   <option value="">كل الخيارات</option>
-                  <option value="أعزب">أعزب</option>
-                  <option value="مطلق - بدون أولاد">مطلق - بدون أولاد</option>
-                  <option value="مطلق - مع أولاد">مطلق - مع أولاد</option>
-                  <option value="منفصل بدون طلاق">منفصل بدون طلاق</option>
-                  <option value="أرمل - بدون أولاد">أرمل - بدون أولاد</option>
-                  <option value="أرمل - مع أولاد">أرمل - مع أولاد</option>
+                  {MARITAL_STATUS_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
                 </select>
               </label>
 
@@ -686,6 +391,23 @@ export default function SearchPage() {
                 </select>
               </label>
 
+              {/* درجة الالتزام */}
+              <label className="flex flex-col gap-2 text-sm text-slate-600">
+                درجة الالتزام
+                <select
+                  value={filters.religiosityLevel}
+                  onChange={(event) => updateFilter("religiosityLevel", event.target.value)}
+                  className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-slate-900 focus:border-accent-400 focus:outline-none focus:ring-2 focus:ring-accent-100"
+                >
+                  <option value="">كل الخيارات</option>
+                  {RELIGIOSITY_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
               {/* نوع الزواج */}
               <label className="flex flex-col gap-2 text-sm text-slate-600">
                 نوع الزواج
@@ -695,8 +417,11 @@ export default function SearchPage() {
                   className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-slate-900 focus:border-accent-400 focus:outline-none focus:ring-2 focus:ring-accent-100"
                 >
                   <option value="">كل الخيارات</option>
-                  <option value="زواج تقليدي">زواج تقليدي</option>
-                  <option value="زواج بشروط خاصة">زواج بشروط خاصة</option>
+                  {MARRIAGE_TYPE_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
                 </select>
               </label>
 
@@ -800,7 +525,7 @@ export default function SearchPage() {
           ) : (
             <div className="grid gap-4 lg:grid-cols-2">
               {results.map((result) => {
-                const isFavorite = favoritesIds.includes(result.user.id);
+                const isUserFavorite = isFavorite(result.user.id);
                 return (
                   <div
                     key={result.profile.id}
@@ -889,11 +614,11 @@ export default function SearchPage() {
                       </Link>
                       <button
                         type="button"
-                        onClick={() => handleAddFavorite(result.user.id)}
-                        disabled={isFavorite}
+                        onClick={() => toggleFavorite(result.user.id)}
+                        disabled={false}
                         className="rounded-full border border-accent-200 px-4 py-2 text-xs font-medium text-accent-600 transition-colors hover:bg-accent-50 disabled:cursor-not-allowed disabled:opacity-60"
                       >
-                        {isFavorite ? "⭐ ضمن المفضلة" : "🤍 إضافة إلى المفضلة"}
+                        {isUserFavorite ? "⭐ ضمن المفضلة" : "🤍 إضافة إلى المفضلة"}
                       </button>
                     </div>
                   </div>
@@ -906,4 +631,3 @@ export default function SearchPage() {
     </div>
   );
 }
-

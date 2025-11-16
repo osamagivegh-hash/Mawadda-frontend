@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { register as registerRequest, type AuthResponse } from "@/lib/api";
+import { useAuthStore } from "@/store/auth-store";
 
 const roles = [
   { value: "female", label: "عضوة" },
@@ -11,6 +12,7 @@ const roles = [
 ];
 
 export default function RegisterPage() {
+  const setAuth = useAuthStore((state) => state.setAuth);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<{ memberId?: string } | null>(null);
@@ -32,18 +34,8 @@ export default function RegisterPage() {
       const result = await registerRequest(payload);
       const token = result.token;
       if (token && result.user) {
-        // Store auth in localStorage
-        window.localStorage.setItem("mawaddahToken", token);
-        window.localStorage.setItem(
-          "mawaddahUser",
-          JSON.stringify(result.user satisfies AuthResponse["user"]),
-        );
-        
-        // Dispatch storage event so dashboard can detect auth change (same-tab workaround)
-        // Storage events normally only fire for other tabs, so we dispatch manually
-        if (typeof window !== "undefined") {
-          window.dispatchEvent(new Event("storage"));
-        }
+        // Use Zustand auth store instead of manual localStorage
+        setAuth(token, result.user);
         
         // Show success message with member ID
         setSuccess({ memberId: result.user.memberId });
