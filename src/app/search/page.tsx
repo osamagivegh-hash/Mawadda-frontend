@@ -23,10 +23,12 @@ export default function SearchPage() {
     results,
     loading,
     error,
+    meta,
     setFilter,
     resetFilters,
     performSearch,
   } = useSearchStore();
+  const [currentPage, setCurrentPage] = useState(1);
   const {
     favorites,
     loadFavorites,
@@ -148,12 +150,17 @@ export default function SearchPage() {
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setFeedback(null);
+    setCurrentPage(1);
     
-    await performSearch();
+    console.log(">>> FRONTEND: SEARCH PAGE: Form submitted");
+    console.log(">>> FRONTEND: FILTERS:", filters);
+    
+    await performSearch(1);
     
     // Set feedback based on results
     const currentResults = useSearchStore.getState().results;
     const currentError = useSearchStore.getState().error;
+    const currentMeta = useSearchStore.getState().meta;
     
     if (currentError) {
       // Error is already set in store, no need to set feedback
@@ -163,8 +170,16 @@ export default function SearchPage() {
     if (currentResults.length === 0) {
       setFeedback("لم يتم العثور على نتائج مطابقة لمعايير البحث. جرب معايير مختلفة أو قم بإزالة بعض الفلاتر الاختيارية.");
     } else {
-      setFeedback(`✅ تم العثور على ${currentResults.length} ${currentResults.length === 1 ? 'نتيجة' : 'نتائج'}`);
+      const total = currentMeta?.total || currentResults.length;
+      setFeedback(`✅ تم العثور على ${total} ${total === 1 ? 'نتيجة' : 'نتائج'}`);
     }
+  };
+
+  const handlePageChange = async (page: number) => {
+    console.log(">>> FRONTEND: SEARCH PAGE: Page change to", page);
+    setCurrentPage(page);
+    await performSearch(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   return (
@@ -247,18 +262,32 @@ export default function SearchPage() {
               </label>
 
               {/* الطول */}
-              <label className="flex flex-col gap-2 text-sm text-slate-600">
-                الطول (سم)
-                <input
-                  type="number"
-                  min={100}
-                  max={250}
-                  value={filters.height}
-                  onChange={(event) => updateFilter("height", event.target.value)}
-                  className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-slate-900 focus:border-accent-400 focus:outline-none focus:ring-2 focus:ring-accent-100"
-                  placeholder="170"
-                />
-              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="flex flex-col gap-2 text-sm text-slate-600">
+                  الطول من (سم)
+                  <input
+                    type="number"
+                    min={100}
+                    max={250}
+                    value={filters.minHeight}
+                    onChange={(event) => updateFilter("minHeight", event.target.value)}
+                    className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-slate-900 focus:border-accent-400 focus:outline-none focus:ring-2 focus:ring-accent-100"
+                    placeholder="160"
+                  />
+                </label>
+                <label className="flex flex-col gap-2 text-sm text-slate-600">
+                  الطول الى (سم)
+                  <input
+                    type="number"
+                    min={100}
+                    max={250}
+                    value={filters.maxHeight}
+                    onChange={(event) => updateFilter("maxHeight", event.target.value)}
+                    className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-slate-900 focus:border-accent-400 focus:outline-none focus:ring-2 focus:ring-accent-100"
+                    placeholder="190"
+                  />
+                </label>
+              </div>
 
               {/* بلد الإقامة */}
               <label className="flex flex-col gap-2 text-sm text-slate-600">
@@ -498,11 +527,16 @@ export default function SearchPage() {
         <section className="space-y-4">
           <div className="flex items-center gap-3">
             <h2 className="text-lg font-semibold text-secondary-800">
-              🔍 نتائج البحث ({results.length})
+              🔍 نتائج البحث ({meta?.total || results.length})
             </h2>
             {results.length > 0 && (
               <span className="rounded-full bg-accent-100 px-3 py-1 text-xs font-medium text-accent-700">
-                {results.length} عضو
+                {meta?.total || results.length} عضو
+              </span>
+            )}
+            {meta && (
+              <span className="text-sm text-slate-500">
+                (صفحة {meta.current_page} من {meta.last_page})
               </span>
             )}
           </div>
@@ -623,6 +657,60 @@ export default function SearchPage() {
                   </div>
                 );
               })}
+            </div>
+          )}
+
+          {/* Pagination */}
+          {meta && meta.last_page > 1 && (
+            <div className="flex items-center justify-center gap-2 mt-6">
+              <button
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1 || loading}
+                className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                السابق
+              </button>
+              
+              {Array.from({ length: meta.last_page }, (_, i) => i + 1)
+                .filter(page => {
+                  // Show first page, last page, current page, and pages around current
+                  return (
+                    page === 1 ||
+                    page === meta.last_page ||
+                    (page >= currentPage - 2 && page <= currentPage + 2)
+                  );
+                })
+                .map((page, index, array) => {
+                  // Add ellipsis if there's a gap
+                  const showEllipsisBefore = index > 0 && page - array[index - 1] > 1;
+                  
+                  return (
+                    <div key={page} className="flex items-center gap-2">
+                      {showEllipsisBefore && (
+                        <span className="px-2 text-slate-500">...</span>
+                      )}
+                      <button
+                        onClick={() => handlePageChange(page)}
+                        disabled={loading}
+                        className={`rounded-lg border px-4 py-2 text-sm font-medium ${
+                          currentPage === page
+                            ? "border-accent-600 bg-accent-600 text-white"
+                            : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                        } disabled:opacity-50 disabled:cursor-not-allowed`}
+                      >
+                        {page}
+                      </button>
+                    </div>
+                  );
+                })}
+              
+              <button
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === meta.last_page || loading}
+                className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                التالي
+              </button>
             </div>
           )}
         </section>
