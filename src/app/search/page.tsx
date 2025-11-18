@@ -165,24 +165,43 @@ export default function SearchPage() {
     
     console.log(">>> FRONTEND: SEARCH PAGE: Form submitted");
     console.log(">>> FRONTEND: FILTERS:", filters);
+    console.log(">>> FRONTEND: CURRENT STATE BEFORE SEARCH:", {
+      resultsCount: results.length,
+      loading: loading,
+      error: error,
+    });
     
-    await performSearch(1);
-    
-    // Set feedback based on results
-    const currentResults = useSearchStore.getState().results;
-    const currentError = useSearchStore.getState().error;
-    const currentMeta = useSearchStore.getState().meta;
-    
-    if (currentError) {
-      // Error is already set in store, no need to set feedback
-      return;
-    }
-    
-    if (currentResults.length === 0) {
-      setFeedback("لم يتم العثور على نتائج مطابقة لمعايير البحث. جرب معايير مختلفة أو قم بإزالة بعض الفلاتر الاختيارية.");
-    } else {
-      const total = currentMeta?.total || currentResults.length;
-      setFeedback(`✅ تم العثور على ${total} ${total === 1 ? 'نتيجة' : 'نتائج'}`);
+    try {
+      await performSearch(1);
+      
+      // Wait a bit for state to update
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      // Get fresh state after search
+      const currentResults = useSearchStore.getState().results;
+      const currentError = useSearchStore.getState().error;
+      const currentMeta = useSearchStore.getState().meta;
+      
+      console.log(">>> FRONTEND: SEARCH PAGE: After performSearch", {
+        resultsCount: currentResults.length,
+        error: currentError,
+        meta: currentMeta,
+      });
+      
+      if (currentError) {
+        setFeedback(`❌ خطأ: ${currentError}`);
+        return;
+      }
+      
+      if (currentResults.length === 0) {
+        setFeedback("⚠️ لم يتم العثور على نتائج مطابقة لمعايير البحث. جرب معايير مختلفة أو قم بإزالة بعض الفلاتر الاختيارية.");
+      } else {
+        const total = currentMeta?.total || currentResults.length;
+        setFeedback(`✅ تم العثور على ${total} ${total === 1 ? 'نتيجة' : 'نتائج'}`);
+      }
+    } catch (err) {
+      console.error(">>> FRONTEND: SEARCH PAGE: Error in handleSubmit:", err);
+      setFeedback(`❌ حدث خطأ: ${err instanceof Error ? err.message : "خطأ غير معروف"}`);
     }
   };
 
@@ -534,6 +553,27 @@ export default function SearchPage() {
             ) : null}
           </div>
         ) : null}
+
+        {/* Debug Panel - Remove this after fixing */}
+        <div className="rounded-3xl border-2 border-blue-300 bg-blue-50 p-4 text-xs font-mono">
+          <div className="mb-2 font-bold text-blue-900">🔍 DEBUG INFO:</div>
+          <div className="space-y-1 text-blue-800">
+            <div>Loading: {loading ? "✅ Yes" : "❌ No"}</div>
+            <div>Error: {error || "None"}</div>
+            <div>Results Count: {results.length}</div>
+            <div>Meta Total: {meta?.total ?? "N/A"}</div>
+            <div>Current Page: {meta?.current_page ?? "N/A"}</div>
+            <div>Last Page: {meta?.last_page ?? "N/A"}</div>
+            {results.length > 0 && (
+              <div className="mt-2">
+                <div className="font-bold">First Result:</div>
+                <pre className="mt-1 overflow-auto text-[10px]">
+                  {JSON.stringify(results[0], null, 2)}
+                </pre>
+              </div>
+            )}
+          </div>
+        </div>
 
         <section className="space-y-4">
           <div className="flex items-center gap-3">

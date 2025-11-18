@@ -297,25 +297,69 @@ export const useSearchStore = create<SearchState & SearchActions>()(
           console.log(">>> FRONTEND: RESULTS COUNT:", data.data?.length || 0);
           console.log(">>> FRONTEND: PAGINATION META:", data.meta);
 
-          if (data && data.status === "success" && Array.isArray(data.data)) {
-            console.log(">>> FRONTEND: SETTING RESULTS:", data.data.length, "items");
+          // Validate response structure
+          if (!data) {
+            console.error(">>> FRONTEND: NO DATA IN RESPONSE");
             set({
-              results: data.data,
-              meta: data.meta || null,
+              results: [],
+              meta: null,
+              error: "استجابة فارغة من الخادم",
+            });
+            return;
+          }
+
+          console.log(">>> FRONTEND: RESPONSE VALIDATION:", {
+            hasStatus: !!data.status,
+            status: data.status,
+            hasData: !!data.data,
+            dataType: typeof data.data,
+            isArray: Array.isArray(data.data),
+            dataLength: Array.isArray(data.data) ? data.data.length : "N/A",
+            hasMeta: !!data.meta,
+          });
+
+          if (data.status === "success" && Array.isArray(data.data)) {
+            console.log(">>> FRONTEND: SETTING RESULTS:", data.data.length, "items");
+            console.log(">>> FRONTEND: FIRST RESULT:", data.data[0]);
+            
+            // Ensure we have valid results
+            const validResults = data.data.filter((item: any) => 
+              item && item.user && item.profile
+            );
+            
+            console.log(">>> FRONTEND: VALID RESULTS COUNT:", validResults.length);
+            
+            set({
+              results: validResults,
+              meta: data.meta || {
+                current_page: page,
+                last_page: 1,
+                per_page: filters.per_page ? parseInt(filters.per_page) : 20,
+                total: validResults.length,
+              },
               error: null,
             });
-            console.log(">>> FRONTEND: RESULTS SET IN STATE");
+            
+            // Verify state was set
+            setTimeout(() => {
+              const currentState = get();
+              console.log(">>> FRONTEND: STATE AFTER SET:", {
+                resultsCount: currentState.results.length,
+                meta: currentState.meta,
+              });
+            }, 100);
           } else {
             console.error(">>> FRONTEND: INVALID RESPONSE STRUCTURE:", {
               hasData: !!data,
               status: data?.status,
               isArray: Array.isArray(data?.data),
               dataType: typeof data?.data,
+              actualData: data?.data,
             });
             set({
               results: [],
               meta: null,
-              error: "استجابة غير صحيحة من الخادم. يرجى المحاولة مرة أخرى.",
+              error: `استجابة غير صحيحة من الخادم. الحالة: ${data?.status || "غير معروف"}`,
             });
           }
         } catch (err) {
@@ -348,9 +392,9 @@ export const useSearchStore = create<SearchState & SearchActions>()(
     {
       name: "mawaddah-search",
       partialize: (state) => ({
+        // Only persist filters, not results (results should be fresh on each search)
         filters: state.filters,
-        results: state.results,
-        meta: state.meta,
+        // Don't persist results and meta to avoid stale data
       }),
     },
   ),
