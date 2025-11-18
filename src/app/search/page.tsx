@@ -42,6 +42,10 @@ export default function SearchPage() {
     isFavorite,
   } = useFavoritesStore();
   const [feedback, setFeedback] = useState<string | null>(null);
+  
+  // Track previous loading state to detect when search completes
+  // MUST be declared before any conditional returns to maintain hooks order
+  const prevLoadingRef = useRef<boolean>(false);
 
   // Load favorites and profile when authenticated
   useEffect(() => {
@@ -234,7 +238,6 @@ export default function SearchPage() {
 
   // Reactively update feedback when search completes
   // This effect runs when loading changes from true to false (search completed)
-  const prevLoadingRef = useRef(loading);
   useEffect(() => {
     // Detect when loading changes from true to false (search just completed)
     if (prevLoadingRef.current === true && loading === false) {
