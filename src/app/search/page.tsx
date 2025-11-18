@@ -564,14 +564,14 @@ export default function SearchPage() {
         {error ? (
           <div className="rounded-3xl bg-rose-50 px-6 py-4 text-sm text-rose-600">
             <p className="mb-3">{error}</p>
-            {error.includes("ملفك الشخصي") || error.includes("الجنس") ? (
+            {(error.includes("ملفك الشخصي") || error.includes("الجنس") || error.includes("profile") || error.includes("gender")) && (
               <Link
                 href="/profile"
-                className="inline-block rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-rose-700"
+                className="inline-block rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-rose-700 mt-2"
               >
-                اذهب إلى صفحة الملف الشخصي
+                اذهب إلى صفحة الملف الشخصي لإكمال البيانات
               </Link>
-            ) : null}
+            )}
           </div>
         ) : null}
 

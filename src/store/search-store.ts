@@ -367,13 +367,15 @@ export const useSearchStore = create<SearchState & SearchActions>()(
           let errorMessage = "حدث خطأ في البحث، حاول مرة أخرى.";
 
           if (err instanceof Error) {
+            const errorMsg = err.message.toLowerCase();
             if (
-              err.message.includes("gender is missing") ||
-              err.message.includes("add your gender") ||
-              err.message.includes("complete your profile")
+              errorMsg.includes("gender") ||
+              errorMsg.includes("profile") ||
+              errorMsg.includes("complete") ||
+              errorMsg.includes("missing")
             ) {
               errorMessage =
-                "يجب إكمال ملفك الشخصي أولاً. يرجى إضافة الجنس في صفحة الملف الشخصي.";
+                "يجب إكمال ملفك الشخصي أولاً. يرجى زيارة صفحة الملف الشخصي وإضافة جميع المعلومات المطلوبة (خاصة الجنس).";
             } else {
               errorMessage = err.message;
             }
