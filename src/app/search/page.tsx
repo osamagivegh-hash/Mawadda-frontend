@@ -33,7 +33,7 @@ export default function SearchPage() {
     resetFilters,
     performSearch,
   } = useSearchStore();
-  const { profile, loadProfile } = useProfileStore();
+  const { profile, loadProfile, loading: profileLoading } = useProfileStore();
   const [currentPage, setCurrentPage] = useState(1);
   const {
     favorites,
@@ -110,12 +110,44 @@ export default function SearchPage() {
   }, [CITY_OPTIONS, COUNTRY_OPTIONS, filters.countryOfResidence]);
 
   // Show loading screen while auth is hydrating or profile is loading
-  if (authLoading || (isAuthenticated && !profile && !error)) {
+  if (authLoading || (isAuthenticated && profileLoading)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-accent-50 via-white to-primary-50">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-2 border-accent-600 border-t-transparent mx-auto mb-4"></div>
           <p className="text-sm text-slate-600">جاري التحميل...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Check if profile exists and has gender before allowing search
+  if (isAuthenticated && (!profile || !profile.gender)) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-accent-50 via-white to-primary-50 px-4">
+        <div className="max-w-md w-full rounded-3xl border border-slate-100 bg-white p-8 shadow-lg text-center">
+          <h1 className="text-2xl font-bold text-secondary-900 mb-4">
+            يجب إكمال ملفك الشخصي أولاً
+          </h1>
+          <p className="text-sm text-slate-600 mb-6">
+            {!profile
+              ? "لم يتم العثور على ملفك الشخصي. يرجى إنشاء ملفك الشخصي أولاً."
+              : "يجب إضافة الجنس في ملفك الشخصي قبل استخدام البحث."}
+          </p>
+          <div className="flex flex-col gap-3">
+            <Link
+              href="/profile"
+              className="rounded-full bg-accent-600 px-6 py-3 text-sm font-medium text-white hover:bg-accent-700 transition"
+            >
+              اذهب إلى صفحة الملف الشخصي
+            </Link>
+            <Link
+              href="/dashboard"
+              className="text-sm text-secondary-600 hover:text-secondary-500"
+            >
+              العودة إلى لوحة التحكم
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -154,12 +186,17 @@ export default function SearchPage() {
   // Helper function to check if required fields are filled
   // Gender is now automatically determined from user profile, so we only check age
   const isSearchButtonEnabled = (): boolean => {
+    // Ensure profile and gender exist
+    if (!profile || !profile.gender) {
+      return false;
+    }
+    
     const minAgeValue = filters.minAge ? parseInt(filters.minAge) : undefined;
     const maxAgeValue = filters.maxAge ? parseInt(filters.maxAge) : undefined;
     const hasAge = (minAgeValue !== undefined && !isNaN(minAgeValue)) || 
                    (maxAgeValue !== undefined && !isNaN(maxAgeValue));
     
-    return hasAge && !loading;
+    return hasAge && !loading && !profileLoading;
   };
 
   const updateFilter = (name: keyof SearchFilters, value: string) => {
