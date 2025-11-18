@@ -9,26 +9,28 @@ import { useProfileStore, type ProfileResponse } from "@/store/profile-store";
 
 import countriesData from "@/data/countries.json";
 import citiesData from "@/data/cities.json";
-import educationLevelsData from "@/data/education.json";
-import jobsData from "@/data/jobs.json";
-import maritalStatusData from "@/data/marital-status.json";
-import marriageTypesData from "@/data/marriage-type.json";
-import religiosityLevelsData from "@/data/religiosity-level.json";
-import polygamyOptionsData from "@/data/polygamy.json";
-import compatibilityOptionsData from "@/data/compatibility.json";
+import {
+  EDUCATION_LEVELS,
+  OCCUPATIONS,
+  ALL_MARITAL_STATUSES,
+  MARRIAGE_TYPES,
+  RELIGIOSITY_LEVELS,
+  POLYGAMY_OPTIONS,
+  COMPATIBILITY_OPTIONS,
+} from "@/lib/profile-constants";
 
 type CountryOption = { code: string; name: string };
 type CityOption = { countryCode: string; name: string };
 
 const COUNTRY_OPTIONS = countriesData as CountryOption[];
 const CITY_OPTIONS = citiesData as CityOption[];
-const EDUCATION_OPTIONS = educationLevelsData as string[];
-const JOB_OPTIONS = jobsData as string[];
-const MARITAL_STATUS_OPTIONS = maritalStatusData as string[];
-const MARRIAGE_TYPE_OPTIONS = marriageTypesData as string[];
-const RELIGIOSITY_OPTIONS = religiosityLevelsData as string[];
-const POLYGAMY_OPTIONS = polygamyOptionsData as string[];
-const COMPATIBILITY_OPTIONS = compatibilityOptionsData as string[];
+const EDUCATION_OPTIONS = EDUCATION_LEVELS;
+const JOB_OPTIONS = OCCUPATIONS;
+const MARITAL_STATUS_OPTIONS = ALL_MARITAL_STATUSES;
+const MARRIAGE_TYPE_OPTIONS = MARRIAGE_TYPES;
+const RELIGIOSITY_OPTIONS = RELIGIOSITY_LEVELS;
+const POLYGAMY_OPTIONS_MEMO = POLYGAMY_OPTIONS;
+const COMPATIBILITY_OPTIONS_MEMO = COMPATIBILITY_OPTIONS;
 
 // useRef to track if request is in flight (prevents double submit)
 // More reliable than state because it's synchronous
@@ -768,7 +770,7 @@ export default function ProfilePage() {
                           className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-100"
                         >
                           <option value="">اختر</option>
-                          {POLYGAMY_OPTIONS.map((option) => (
+                          {POLYGAMY_OPTIONS_MEMO.map((option) => (
                             <option key={option} value={option}>
                               {option}
                             </option>
@@ -793,7 +795,7 @@ export default function ProfilePage() {
                           className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-100"
                         >
                           <option value="">اختر</option>
-                          {COMPATIBILITY_OPTIONS.map((option) => (
+                          {COMPATIBILITY_OPTIONS_MEMO.map((option) => (
                             <option key={option} value={option}>
                               {option}
                             </option>

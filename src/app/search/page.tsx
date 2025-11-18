@@ -7,37 +7,18 @@ import { useAuthStore } from "@/store/auth-store";
 import { useSearchStore, type SearchFilters } from "@/store/search-store";
 import { useFavoritesStore } from "@/store/favorites-store";
 import { useProfileStore } from "@/store/profile-store";
+import {
+  EDUCATION_LEVELS,
+  OCCUPATIONS,
+  RELIGIOSITY_LEVELS,
+  MARRIAGE_TYPES,
+  POLYGAMY_OPTIONS,
+  COMPATIBILITY_OPTIONS,
+  getMaritalStatusesForSearch,
+} from "@/lib/profile-constants";
 
 import countriesData from "@/data/countries.json";
 import citiesData from "@/data/cities.json";
-import educationLevelsData from "@/data/education.json";
-import maritalStatusData from "@/data/marital-status.json";
-import marriageTypesData from "@/data/marriage-type.json";
-import religiosityLevelsData from "@/data/religiosity-level.json";
-import polygamyOptionsData from "@/data/polygamy.json";
-
-// Gender-specific marital status lists
-const FEMALE_MARITAL_STATUSES = [
-  "عزباء",
-  "مطلقة",
-  "أرملة",
-  "مطلق - بدون أولاد",
-  "مطلق - مع أولاد",
-  "منفصل بدون طلاق",
-  "أرمل - بدون أولاد",
-  "أرمل - مع أولاد",
-] as const;
-
-const MALE_MARITAL_STATUSES = [
-  "أعزب",
-  "مطلق",
-  "أرمل",
-  "مطلق - بدون أولاد",
-  "مطلق - مع أولاد",
-  "منفصل بدون طلاق",
-  "أرمل - بدون أولاد",
-  "أرمل - مع أولاد",
-] as const;
 
 export default function SearchPage() {
   const router = useRouter();
@@ -73,14 +54,11 @@ export default function SearchPage() {
   // Clear invalid marital status when profile loads
   useEffect(() => {
     if (profile?.gender && filters.maritalStatus) {
-      const userGender = profile.gender;
-      const validStatuses = userGender === 'male' 
-        ? FEMALE_MARITAL_STATUSES 
-        : MALE_MARITAL_STATUSES;
+      const validStatuses = getMaritalStatusesForSearch(profile.gender);
       
       // If current selection is not in valid list, clear it
-      if (!validStatuses.includes(filters.maritalStatus as any)) {
-        console.log(`Clearing invalid marital status "${filters.maritalStatus}" for ${userGender} user`);
+      if (!validStatuses.includes(filters.maritalStatus)) {
+        console.log(`Clearing invalid marital status "${filters.maritalStatus}" for ${profile.gender} user`);
         setFilter('maritalStatus', '');
       }
     }
@@ -106,40 +84,19 @@ export default function SearchPage() {
     () => citiesData as { countryCode: string; name: string }[],
     [],
   );
-  const EDUCATION_OPTIONS = useMemo(
-    () => educationLevelsData as string[],
-    [],
-  );
-  // Gender-filtered marital status options
-  // If logged-in user is male, show female statuses (they search for females)
-  // If logged-in user is female, show male statuses (they search for males)
+  // Use unified constants for all options
+  const EDUCATION_OPTIONS = useMemo(() => EDUCATION_LEVELS, []);
+  const OCCUPATION_OPTIONS = useMemo(() => OCCUPATIONS, []);
+  
+  // Gender-filtered marital status options using unified constants
   const MARITAL_STATUS_OPTIONS = useMemo(() => {
-    const userGender = profile?.gender;
-    
-    if (userGender === 'male') {
-      // Male user searches for females → show female statuses
-      return FEMALE_MARITAL_STATUSES;
-    } else if (userGender === 'female') {
-      // Female user searches for males → show male statuses
-      return MALE_MARITAL_STATUSES;
-    }
-    
-    // Fallback: if gender not loaded yet, return empty array
-    // This prevents showing wrong options before profile loads
-    return [];
+    return getMaritalStatusesForSearch(profile?.gender);
   }, [profile?.gender]);
-  const MARRIAGE_TYPE_OPTIONS = useMemo(
-    () => marriageTypesData as string[],
-    [],
-  );
-  const RELIGIOSITY_OPTIONS = useMemo(
-    () => religiosityLevelsData as string[],
-    [],
-  );
-  const POLYGAMY_OPTIONS = useMemo(
-    () => polygamyOptionsData as string[],
-    [],
-  );
+  
+  const MARRIAGE_TYPE_OPTIONS = useMemo(() => MARRIAGE_TYPES, []);
+  const RELIGIOSITY_OPTIONS = useMemo(() => RELIGIOSITY_LEVELS, []);
+  const POLYGAMY_OPTIONS_MEMO = useMemo(() => POLYGAMY_OPTIONS, []);
+  const COMPATIBILITY_OPTIONS_MEMO = useMemo(() => COMPATIBILITY_OPTIONS, []);
 
   const availableCities = useMemo(() => {
     if (!filters.countryOfResidence) {
@@ -152,8 +109,8 @@ export default function SearchPage() {
     return CITY_OPTIONS.filter((c) => c.countryCode === country.code);
   }, [CITY_OPTIONS, COUNTRY_OPTIONS, filters.countryOfResidence]);
 
-  // Show loading screen while auth is hydrating
-  if (authLoading) {
+  // Show loading screen while auth is hydrating or profile is loading
+  if (authLoading || (isAuthenticated && !profile && !error)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-accent-50 via-white to-primary-50">
         <div className="text-center">
@@ -418,8 +375,11 @@ export default function SearchPage() {
                   className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-slate-900 focus:border-accent-400 focus:outline-none focus:ring-2 focus:ring-accent-100"
                 >
                   <option value="">كل الخيارات</option>
-                  <option value="نعم">نعم</option>
-                  <option value="لا">لا</option>
+                  {COMPATIBILITY_OPTIONS_MEMO.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
                 </select>
               </label>
 
@@ -432,7 +392,7 @@ export default function SearchPage() {
                   className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-slate-900 focus:border-accent-400 focus:outline-none focus:ring-2 focus:ring-accent-100"
                 >
                   <option value="">كل الخيارات</option>
-                  {POLYGAMY_OPTIONS.map((option) => (
+                  {POLYGAMY_OPTIONS_MEMO.map((option) => (
                     <option key={option} value={option}>
                       {option}
                     </option>
