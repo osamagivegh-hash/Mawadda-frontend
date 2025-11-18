@@ -5,9 +5,10 @@ import { FormEvent, useState } from "react";
 import { register as registerRequest, type AuthResponse } from "@/lib/api";
 import { useAuthStore } from "@/store/auth-store";
 
+// Note: Role is optional and defaults to "user" on backend
+// Only consultants/admins should set role explicitly
 const roles = [
-  { value: "female", label: "عضوة" },
-  { value: "male", label: "عضو" },
+  { value: "", label: "عضو عادي (افتراضي)" },
   { value: "consultant", label: "مستشار" },
 ];
 
@@ -21,12 +22,24 @@ export default function RegisterPage() {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
     const rawEntries = Object.fromEntries(formData.entries());
+    // Filter out empty values, but handle role specially (empty string means default "user")
     const payload = Object.fromEntries(
       Object.entries(rawEntries).filter(
-        ([, value]) =>
-          typeof value === "string" && value.trim().length > 0,
+        ([key, value]) => {
+          // For role field, empty string is valid (means default "user")
+          if (key === "role") {
+            return true; // Include role even if empty, backend will default to "user"
+          }
+          // For other fields, filter out empty strings
+          return typeof value === "string" && value.trim().length > 0;
+        },
       ),
     );
+    
+    // If role is empty string, remove it so backend uses default
+    if (payload.role === "") {
+      delete payload.role;
+    }
 
     try {
       setLoading(true);
@@ -92,10 +105,10 @@ export default function RegisterPage() {
                 />
               </label>
               <label className="flex flex-col gap-2 text-sm text-slate-600">
-                نوع الحساب
+                نوع الحساب (اختياري - افتراضي: عضو عادي)
                 <select
                   name="role"
-                  defaultValue="female"
+                  defaultValue=""
                   className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-100"
                 >
                   {roles.map((role) => (
