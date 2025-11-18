@@ -320,30 +320,79 @@ export const useSearchStore = create<SearchState & SearchActions>()(
 
           if (data.status === "success" && Array.isArray(data.data)) {
             console.log(">>> FRONTEND: SETTING RESULTS:", data.data.length, "items");
-            console.log(">>> FRONTEND: FIRST RESULT:", data.data[0]);
+            console.log(">>> FRONTEND: FIRST RESULT:", JSON.stringify(data.data[0], null, 2));
             
-            // Ensure we have valid results
-            const validResults = data.data.filter((item: any) => 
-              item && item.user && item.profile
-            );
+            // Ensure we have valid results - check structure carefully
+            // Log the raw data structure first
+            console.log(">>> FRONTEND: RAW DATA STRUCTURE:", {
+              dataLength: data.data.length,
+              firstItemKeys: data.data[0] ? Object.keys(data.data[0]) : [],
+              firstItem: data.data[0],
+            });
+            
+            const validResults = data.data.filter((item: any, index: number) => {
+              // Check if item exists and has required structure
+              if (!item) {
+                console.warn(`>>> FRONTEND: Result ${index} is null/undefined`);
+                return false;
+              }
+              
+              // Check for user and profile - they must exist
+              const hasUser = !!item.user;
+              const hasProfile = !!item.profile;
+              
+              if (!hasUser || !hasProfile) {
+                console.warn(`>>> FRONTEND: Filtering out invalid result at index ${index}:`, {
+                  hasItem: !!item,
+                  hasUser: hasUser,
+                  hasProfile: hasProfile,
+                  itemKeys: Object.keys(item),
+                  userKeys: item.user ? Object.keys(item.user) : [],
+                  profileKeys: item.profile ? Object.keys(item.profile) : [],
+                  fullItem: JSON.stringify(item, null, 2),
+                });
+                return false;
+              }
+              
+              return true;
+            });
             
             console.log(">>> FRONTEND: VALID RESULTS COUNT:", validResults.length);
+            console.log(">>> FRONTEND: FILTERED OUT:", data.data.length - validResults.length, "invalid results");
+            
+            // If we filtered out results, log a warning
+            if (validResults.length < data.data.length) {
+              console.error(">>> FRONTEND: WARNING - Some results were filtered out!", {
+                originalCount: data.data.length,
+                validCount: validResults.length,
+                filteredCount: data.data.length - validResults.length,
+              });
+            }
             
             // Use set() to update state - this triggers React re-renders automatically
+            // Use validResults.length for total to match what we actually display
             set({
               results: validResults,
-              meta: data.meta || {
+              meta: data.meta ? {
+                ...data.meta,
+                // Use actual valid results count, not backend's total
+                total: validResults.length,
+              } : {
                 current_page: page,
                 last_page: 1,
                 per_page: filters.per_page ? parseInt(filters.per_page) : 20,
                 total: validResults.length,
               },
-              error: null,
+              error: validResults.length === 0 && data.data.length > 0 
+                ? "تم العثور على نتائج لكنها غير صالحة. يرجى التحقق من البيانات." 
+                : null,
             });
             
             console.log(">>> FRONTEND: STATE UPDATED via set():", {
               resultsCount: validResults.length,
-              meta: data.meta,
+              originalDataCount: data.data.length,
+              originalMetaTotal: data.meta?.total,
+              finalMetaTotal: validResults.length,
             });
           } else {
             console.error(">>> FRONTEND: INVALID RESPONSE STRUCTURE:", {
