@@ -93,6 +93,24 @@ export default function SearchPage() {
     });
   }, [results, meta, loading, error]);
 
+  // Reactively update feedback when search completes
+  // MUST be before conditional returns to maintain hooks order
+  useEffect(() => {
+    // Detect when loading changes from true to false (search just completed)
+    if (prevLoadingRef.current === true && loading === false) {
+      // Search has just completed - use reactive values from hook
+      if (error) {
+        setFeedback(`❌ خطأ: ${error}`);
+      } else if (results.length === 0) {
+        setFeedback("⚠️ لم يتم العثور على نتائج مطابقة لمعايير البحث. جرب معايير مختلفة أو قم بإزالة بعض الفلاتر الاختيارية.");
+      } else {
+        const total = meta?.total || results.length;
+        setFeedback(`✅ تم العثور على ${total} ${total === 1 ? 'نتيجة' : 'نتائج'}`);
+      }
+    }
+    prevLoadingRef.current = loading;
+  }, [loading, error, results, meta]);
+
   // Structured data options
   const COUNTRY_OPTIONS = useMemo(
     () => countriesData as { code: string; name: string }[],
@@ -235,24 +253,6 @@ export default function SearchPage() {
     resetFilters();
     setFeedback(null);
   };
-
-  // Reactively update feedback when search completes
-  // This effect runs when loading changes from true to false (search completed)
-  useEffect(() => {
-    // Detect when loading changes from true to false (search just completed)
-    if (prevLoadingRef.current === true && loading === false) {
-      // Search has just completed - use reactive values from hook
-      if (error) {
-        setFeedback(`❌ خطأ: ${error}`);
-      } else if (results.length === 0) {
-        setFeedback("⚠️ لم يتم العثور على نتائج مطابقة لمعايير البحث. جرب معايير مختلفة أو قم بإزالة بعض الفلاتر الاختيارية.");
-      } else {
-        const total = meta?.total || results.length;
-        setFeedback(`✅ تم العثور على ${total} ${total === 1 ? 'نتيجة' : 'نتائج'}`);
-      }
-    }
-    prevLoadingRef.current = loading;
-  }, [loading, error, results, meta]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
