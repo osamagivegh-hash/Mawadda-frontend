@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/auth-store";
@@ -232,6 +232,25 @@ export default function SearchPage() {
     setFeedback(null);
   };
 
+  // Reactively update feedback when search completes
+  // This effect runs when loading changes from true to false (search completed)
+  const prevLoadingRef = useRef(loading);
+  useEffect(() => {
+    // Detect when loading changes from true to false (search just completed)
+    if (prevLoadingRef.current === true && loading === false) {
+      // Search has just completed - use reactive values from hook
+      if (error) {
+        setFeedback(`❌ خطأ: ${error}`);
+      } else if (results.length === 0) {
+        setFeedback("⚠️ لم يتم العثور على نتائج مطابقة لمعايير البحث. جرب معايير مختلفة أو قم بإزالة بعض الفلاتر الاختيارية.");
+      } else {
+        const total = meta?.total || results.length;
+        setFeedback(`✅ تم العثور على ${total} ${total === 1 ? 'نتيجة' : 'نتائج'}`);
+      }
+    }
+    prevLoadingRef.current = loading;
+  }, [loading, error, results, meta]);
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setFeedback(null);
@@ -245,38 +264,9 @@ export default function SearchPage() {
       error: error,
     });
     
-    try {
-      await performSearch(1);
-      
-      // Wait a bit for state to update
-      await new Promise(resolve => setTimeout(resolve, 200));
-      
-      // Get fresh state after search
-      const currentResults = useSearchStore.getState().results;
-      const currentError = useSearchStore.getState().error;
-      const currentMeta = useSearchStore.getState().meta;
-      
-      console.log(">>> FRONTEND: SEARCH PAGE: After performSearch", {
-        resultsCount: currentResults.length,
-        error: currentError,
-        meta: currentMeta,
-      });
-      
-      if (currentError) {
-        setFeedback(`❌ خطأ: ${currentError}`);
-        return;
-      }
-      
-      if (currentResults.length === 0) {
-        setFeedback("⚠️ لم يتم العثور على نتائج مطابقة لمعايير البحث. جرب معايير مختلفة أو قم بإزالة بعض الفلاتر الاختيارية.");
-      } else {
-        const total = currentMeta?.total || currentResults.length;
-        setFeedback(`✅ تم العثور على ${total} ${total === 1 ? 'نتيجة' : 'نتائج'}`);
-      }
-    } catch (err) {
-      console.error(">>> FRONTEND: SEARCH PAGE: Error in handleSubmit:", err);
-      setFeedback(`❌ حدث خطأ: ${err instanceof Error ? err.message : "خطأ غير معروف"}`);
-    }
+    // performSearch will update the store via set(), which triggers React re-render
+    // The useEffect above will handle updating feedback reactively when loading becomes false
+    await performSearch(1);
   };
 
   const handlePageChange = async (page: number) => {

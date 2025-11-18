@@ -329,6 +329,7 @@ export const useSearchStore = create<SearchState & SearchActions>()(
             
             console.log(">>> FRONTEND: VALID RESULTS COUNT:", validResults.length);
             
+            // Use set() to update state - this triggers React re-renders automatically
             set({
               results: validResults,
               meta: data.meta || {
@@ -340,14 +341,10 @@ export const useSearchStore = create<SearchState & SearchActions>()(
               error: null,
             });
             
-            // Verify state was set
-            setTimeout(() => {
-              const currentState = get();
-              console.log(">>> FRONTEND: STATE AFTER SET:", {
-                resultsCount: currentState.results.length,
-                meta: currentState.meta,
-              });
-            }, 100);
+            console.log(">>> FRONTEND: STATE UPDATED via set():", {
+              resultsCount: validResults.length,
+              meta: data.meta,
+            });
           } else {
             console.error(">>> FRONTEND: INVALID RESPONSE STRUCTURE:", {
               hasData: !!data,
