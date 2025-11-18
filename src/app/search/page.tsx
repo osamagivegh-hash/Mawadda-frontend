@@ -47,9 +47,23 @@ export default function SearchPage() {
   useEffect(() => {
     if (isAuthenticated) {
       void loadFavorites();
-      void loadProfile();
+      // Force reload profile to ensure we have latest data from backend
+      void loadProfile().catch((err) => {
+        console.error("Failed to load profile:", err);
+      });
     }
   }, [isAuthenticated, loadFavorites, loadProfile]);
+
+  // Log profile state for debugging
+  useEffect(() => {
+    console.log(">>> SEARCH PAGE: Profile state:", {
+      hasProfile: !!profile,
+      profileId: profile?.id,
+      gender: profile?.gender,
+      profileLoading: profileLoading,
+      isAuthenticated,
+    });
+  }, [profile, profileLoading, isAuthenticated]);
 
   // Clear invalid marital status when profile loads
   useEffect(() => {
@@ -122,7 +136,8 @@ export default function SearchPage() {
   }
 
   // Check if profile exists and has gender before allowing search
-  if (isAuthenticated && (!profile || !profile.gender)) {
+  // Only show this if profile has finished loading (not loading state)
+  if (isAuthenticated && !profileLoading && (!profile || !profile.gender)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-accent-50 via-white to-primary-50 px-4">
         <div className="max-w-md w-full rounded-3xl border border-slate-100 bg-white p-8 shadow-lg text-center">
@@ -131,8 +146,10 @@ export default function SearchPage() {
           </h1>
           <p className="text-sm text-slate-600 mb-6">
             {!profile
-              ? "لم يتم العثور على ملفك الشخصي. يرجى إنشاء ملفك الشخصي أولاً."
-              : "يجب إضافة الجنس في ملفك الشخصي قبل استخدام البحث."}
+              ? "لم يتم العثور على ملفك الشخصي في قاعدة البيانات. يرجى إنشاء ملفك الشخصي أولاً وحفظه."
+              : !profile.gender
+              ? "يجب إضافة الجنس في ملفك الشخصي قبل استخدام البحث. يرجى الذهاب إلى صفحة الملف الشخصي وإضافة الجنس ثم حفظ الملف."
+              : "يجب إكمال ملفك الشخصي قبل استخدام البحث."}
           </p>
           <div className="flex flex-col gap-3">
             <Link
@@ -147,6 +164,13 @@ export default function SearchPage() {
             >
               العودة إلى لوحة التحكم
             </Link>
+          </div>
+          {/* Debug info */}
+          <div className="mt-4 p-3 bg-slate-50 rounded-lg text-xs text-left">
+            <p className="font-semibold mb-1">معلومات التصحيح:</p>
+            <p>الملف الشخصي موجود: {profile ? "نعم" : "لا"}</p>
+            <p>الجنس موجود: {profile?.gender ? "نعم (" + profile.gender + ")" : "لا"}</p>
+            <p>معرف الملف: {profile?.id || "غير موجود"}</p>
           </div>
         </div>
       </div>
@@ -617,6 +641,10 @@ export default function SearchPage() {
           <div className="mb-2 font-bold text-blue-900">🔍 DEBUG INFO:</div>
           <div className="space-y-1 text-blue-800">
             <div>Loading: {loading ? "✅ Yes" : "❌ No"}</div>
+            <div>Profile Loading: {profileLoading ? "✅ Yes" : "❌ No"}</div>
+            <div>Has Profile: {profile ? "✅ Yes" : "❌ No"}</div>
+            <div>Profile Gender: {profile?.gender || "❌ Missing"}</div>
+            <div>Profile ID: {profile?.id || "❌ Missing"}</div>
             <div>Error: {error || "None"}</div>
             <div>Results Count: {results.length}</div>
             <div>Meta Total: {meta?.total ?? "N/A"}</div>
