@@ -31,14 +31,14 @@ export type SearchFilters = {
 
 export type SearchResult = {
   user: {
-    id: number;
+    id: string;
     email: string;
     role: string;
     status: string;
     memberId: string;
   };
   profile: {
-    id: number;
+    id: string;
     firstName?: string;
     lastName?: string;
     gender?: string;
@@ -279,19 +279,39 @@ export const useSearchStore = create<SearchState & SearchActions>()(
             throw new Error(errorMessage);
           }
 
-          const data: SearchResponse = await response.json();
-          console.log("API RESPONSE:", data);
-          console.log(">>> FRONTEND: RESPONSE DATA:", data);
+          const responseText = await response.text();
+          console.log(">>> FRONTEND: RAW RESPONSE TEXT:", responseText);
+          
+          let data: SearchResponse;
+          try {
+            data = JSON.parse(responseText);
+          } catch (parseError) {
+            console.error(">>> FRONTEND: JSON PARSE ERROR:", parseError);
+            throw new Error("فشل في تحليل استجابة الخادم");
+          }
+          
+          console.log(">>> FRONTEND: PARSED RESPONSE:", data);
+          console.log(">>> FRONTEND: RESPONSE STATUS:", data.status);
+          console.log(">>> FRONTEND: DATA ARRAY:", data.data);
+          console.log(">>> FRONTEND: IS ARRAY:", Array.isArray(data.data));
           console.log(">>> FRONTEND: RESULTS COUNT:", data.data?.length || 0);
           console.log(">>> FRONTEND: PAGINATION META:", data.meta);
 
-          if (data && Array.isArray(data.data)) {
+          if (data && data.status === "success" && Array.isArray(data.data)) {
+            console.log(">>> FRONTEND: SETTING RESULTS:", data.data.length, "items");
             set({
               results: data.data,
-              meta: data.meta,
+              meta: data.meta || null,
               error: null,
             });
+            console.log(">>> FRONTEND: RESULTS SET IN STATE");
           } else {
+            console.error(">>> FRONTEND: INVALID RESPONSE STRUCTURE:", {
+              hasData: !!data,
+              status: data?.status,
+              isArray: Array.isArray(data?.data),
+              dataType: typeof data?.data,
+            });
             set({
               results: [],
               meta: null,

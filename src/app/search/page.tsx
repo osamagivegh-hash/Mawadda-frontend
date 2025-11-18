@@ -44,6 +44,17 @@ export default function SearchPage() {
     }
   }, [isAuthenticated, loadFavorites]);
 
+  // Debug: Log results changes
+  useEffect(() => {
+    console.log(">>> FRONTEND: SEARCH PAGE: Results changed:", {
+      resultsCount: results.length,
+      results: results,
+      meta: meta,
+      loading: loading,
+      error: error,
+    });
+  }, [results, meta, loading, error]);
+
   // Structured data options
   const COUNTRY_OPTIONS = useMemo(
     () => countriesData as { code: string; name: string }[],
