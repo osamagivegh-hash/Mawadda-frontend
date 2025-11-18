@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/auth-store";
 import { useSearchStore, type SearchFilters } from "@/store/search-store";
 import { useFavoritesStore } from "@/store/favorites-store";
+import { useProfileStore } from "@/store/profile-store";
 
 import countriesData from "@/data/countries.json";
 import citiesData from "@/data/cities.json";
@@ -14,6 +15,29 @@ import maritalStatusData from "@/data/marital-status.json";
 import marriageTypesData from "@/data/marriage-type.json";
 import religiosityLevelsData from "@/data/religiosity-level.json";
 import polygamyOptionsData from "@/data/polygamy.json";
+
+// Gender-specific marital status lists
+const FEMALE_MARITAL_STATUSES = [
+  "عزباء",
+  "مطلقة",
+  "أرملة",
+  "مطلق - بدون أولاد",
+  "مطلق - مع أولاد",
+  "منفصل بدون طلاق",
+  "أرمل - بدون أولاد",
+  "أرمل - مع أولاد",
+] as const;
+
+const MALE_MARITAL_STATUSES = [
+  "أعزب",
+  "مطلق",
+  "أرمل",
+  "مطلق - بدون أولاد",
+  "مطلق - مع أولاد",
+  "منفصل بدون طلاق",
+  "أرمل - بدون أولاد",
+  "أرمل - مع أولاد",
+] as const;
 
 export default function SearchPage() {
   const router = useRouter();
@@ -28,6 +52,7 @@ export default function SearchPage() {
     resetFilters,
     performSearch,
   } = useSearchStore();
+  const { profile, loadProfile } = useProfileStore();
   const [currentPage, setCurrentPage] = useState(1);
   const {
     favorites,
@@ -37,12 +62,29 @@ export default function SearchPage() {
   } = useFavoritesStore();
   const [feedback, setFeedback] = useState<string | null>(null);
 
-  // Load favorites when authenticated
+  // Load favorites and profile when authenticated
   useEffect(() => {
     if (isAuthenticated) {
       void loadFavorites();
+      void loadProfile();
     }
-  }, [isAuthenticated, loadFavorites]);
+  }, [isAuthenticated, loadFavorites, loadProfile]);
+
+  // Clear invalid marital status when profile loads
+  useEffect(() => {
+    if (profile?.gender && filters.maritalStatus) {
+      const userGender = profile.gender;
+      const validStatuses = userGender === 'male' 
+        ? FEMALE_MARITAL_STATUSES 
+        : MALE_MARITAL_STATUSES;
+      
+      // If current selection is not in valid list, clear it
+      if (!validStatuses.includes(filters.maritalStatus as any)) {
+        console.log(`Clearing invalid marital status "${filters.maritalStatus}" for ${userGender} user`);
+        setFilter('maritalStatus', '');
+      }
+    }
+  }, [profile?.gender, filters.maritalStatus, setFilter]);
 
   // Debug: Log results changes
   useEffect(() => {
@@ -68,10 +110,24 @@ export default function SearchPage() {
     () => educationLevelsData as string[],
     [],
   );
-  const MARITAL_STATUS_OPTIONS = useMemo(
-    () => maritalStatusData as string[],
-    [],
-  );
+  // Gender-filtered marital status options
+  // If logged-in user is male, show female statuses (they search for females)
+  // If logged-in user is female, show male statuses (they search for males)
+  const MARITAL_STATUS_OPTIONS = useMemo(() => {
+    const userGender = profile?.gender;
+    
+    if (userGender === 'male') {
+      // Male user searches for females → show female statuses
+      return FEMALE_MARITAL_STATUSES;
+    } else if (userGender === 'female') {
+      // Female user searches for males → show male statuses
+      return MALE_MARITAL_STATUSES;
+    }
+    
+    // Fallback: if gender not loaded yet, return empty array
+    // This prevents showing wrong options before profile loads
+    return [];
+  }, [profile?.gender]);
   const MARRIAGE_TYPE_OPTIONS = useMemo(
     () => marriageTypesData as string[],
     [],
@@ -414,8 +470,13 @@ export default function SearchPage() {
                   value={filters.maritalStatus}
                   onChange={(event) => updateFilter("maritalStatus", event.target.value)}
                   className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-slate-900 focus:border-accent-400 focus:outline-none focus:ring-2 focus:ring-accent-100"
+                  disabled={MARITAL_STATUS_OPTIONS.length === 0}
                 >
-                  <option value="">كل الخيارات</option>
+                  <option value="">
+                    {MARITAL_STATUS_OPTIONS.length === 0 
+                      ? "جاري تحميل الخيارات..." 
+                      : "كل الخيارات"}
+                  </option>
                   {MARITAL_STATUS_OPTIONS.map((option) => (
                     <option key={option} value={option}>
                       {option}
