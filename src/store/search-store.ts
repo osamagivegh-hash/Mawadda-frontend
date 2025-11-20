@@ -321,76 +321,68 @@ export const useSearchStore = create<SearchState & SearchActions>()(
           if (data.status === "success" && Array.isArray(data.data)) {
             console.log(">>> FRONTEND: SETTING RESULTS:", data.data.length, "items");
             console.log(">>> FRONTEND: FIRST RESULT:", JSON.stringify(data.data[0], null, 2));
-            
-            // Ensure we have valid results - check structure carefully
-            // Log the raw data structure first
-            console.log(">>> FRONTEND: RAW DATA STRUCTURE:", {
-              dataLength: data.data.length,
-              firstItemKeys: data.data[0] ? Object.keys(data.data[0]) : [],
-              firstItem: data.data[0],
+
+            // Normalize results instead of filtering them out entirely to avoid
+            // "results = 0" when the backend reports matches in meta.total.
+            const normalizedResults: SearchResult[] = data.data.map((item: any, index: number) => {
+              const user = item?.user ?? item?.user_info ?? {};
+              const profile = item?.profile ?? item?.profile_data ?? item?.user_profile ?? {};
+
+              return {
+                user: {
+                  id: user.id ?? `unknown-user-${index}`,
+                  email: user.email ?? "",
+                  role: user.role ?? "",
+                  status: user.status ?? "",
+                  memberId: user.memberId ?? user.member_id ?? `MAW-UNKNOWN-${index}`,
+                },
+                profile: {
+                  id: profile.id ?? `unknown-profile-${index}`,
+                  firstName: profile.firstName ?? profile.first_name ?? profile.firstname ?? "",
+                  lastName: profile.lastName ?? profile.last_name ?? profile.lastname ?? "",
+                  gender: profile.gender ?? "",
+                  age: profile.age,
+                  nationality: profile.nationality,
+                  city: profile.city,
+                  countryOfResidence: profile.countryOfResidence ?? profile.country_of_residence,
+                  education: profile.education,
+                  occupation: profile.occupation,
+                  maritalStatus: profile.maritalStatus ?? profile.marital_status,
+                  marriageType: profile.marriageType ?? profile.marriage_type,
+                  polygamyAcceptance: profile.polygamyAcceptance ?? profile.polygamy_acceptance,
+                  compatibilityTest: profile.compatibilityTest ?? profile.compatibility_test,
+                  religion: profile.religion,
+                  religiosityLevel: profile.religiosityLevel ?? profile.religiosity_level,
+                  about: profile.about,
+                  photoUrl: profile.photoUrl ?? profile.photo_url,
+                  dateOfBirth: profile.dateOfBirth ?? profile.date_of_birth,
+                  height: profile.height,
+                },
+              };
             });
-            
-            const validResults = data.data.filter((item: any, index: number) => {
-              // Check if item exists and has required structure
-              if (!item) {
-                console.warn(`>>> FRONTEND: Result ${index} is null/undefined`);
-                return false;
-              }
-              
-              // Check for user and profile - they must exist
-              const hasUser = !!item.user;
-              const hasProfile = !!item.profile;
-              
-              if (!hasUser || !hasProfile) {
-                console.warn(`>>> FRONTEND: Filtering out invalid result at index ${index}:`, {
-                  hasItem: !!item,
-                  hasUser: hasUser,
-                  hasProfile: hasProfile,
-                  itemKeys: Object.keys(item),
-                  userKeys: item.user ? Object.keys(item.user) : [],
-                  profileKeys: item.profile ? Object.keys(item.profile) : [],
-                  fullItem: JSON.stringify(item, null, 2),
-                });
-                return false;
-              }
-              
-              return true;
-            });
-            
-            console.log(">>> FRONTEND: VALID RESULTS COUNT:", validResults.length);
-            console.log(">>> FRONTEND: FILTERED OUT:", data.data.length - validResults.length, "invalid results");
-            
-            // If we filtered out results, log a warning
-            if (validResults.length < data.data.length) {
-              console.error(">>> FRONTEND: WARNING - Some results were filtered out!", {
-                originalCount: data.data.length,
-                validCount: validResults.length,
-                filteredCount: data.data.length - validResults.length,
-              });
-            }
-            
+
             // Use set() to update state - this triggers React re-renders automatically
             set({
-              results: validResults,
-              meta: data.meta ? {
-                ...data.meta,
-              } : {
-                current_page: page,
-                last_page: 1,
-                per_page: filters.per_page ? parseInt(filters.per_page) : 20,
-                total: validResults.length,
-              },
-              error: validResults.length === 0 && data.data.length > 0 
-                ? "تم العثور على نتائج لكنها غير صالحة. يرجى التحقق من البيانات." 
-                : null,
+              results: normalizedResults,
+              meta: data.meta
+                ? {
+                    ...data.meta,
+                  }
+                : {
+                    current_page: page,
+                    last_page: 1,
+                    per_page: filters.per_page ? parseInt(filters.per_page) : 20,
+                    total: normalizedResults.length,
+                  },
+              error: null,
             });
-            
-              console.log(">>> FRONTEND: STATE UPDATED via set():", {
-                resultsCount: validResults.length,
-                originalDataCount: data.data.length,
-                originalMetaTotal: data.meta?.total,
-                finalMetaTotal: data.meta?.total ?? validResults.length,
-              });
+
+            console.log(">>> FRONTEND: STATE UPDATED via set():", {
+              resultsCount: normalizedResults.length,
+              originalDataCount: data.data.length,
+              originalMetaTotal: data.meta?.total,
+              finalMetaTotal: data.meta?.total ?? normalizedResults.length,
+            });
           } else {
             console.error(">>> FRONTEND: INVALID RESPONSE STRUCTURE:", {
               hasData: !!data,
