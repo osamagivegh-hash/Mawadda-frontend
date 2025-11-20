@@ -329,6 +329,36 @@ export const useSearchStore = create<SearchState & SearchActions>()(
             rawResults = (data as any).results;
           }
 
+          // Some backend responses include the array in a nested property (e.g. data.results
+          // or data.data.results). To avoid showing "no results" when meta.total is present,
+          // scan for the first nested array of objects and use it as the raw results.
+          if (rawResults.length === 0) {
+            const findFirstArray = (obj: unknown): any[] | null => {
+              if (!obj || typeof obj !== "object") return null;
+
+              for (const value of Object.values(obj as Record<string, unknown>)) {
+                if (Array.isArray(value)) {
+                  return value as any[];
+                }
+
+                if (value && typeof value === "object") {
+                  const nested = findFirstArray(value);
+                  if (nested) return nested;
+                }
+              }
+
+              return null;
+            };
+
+            const fallbackArray = findFirstArray(data.data ?? data);
+            if (fallbackArray) {
+              console.log(">>> FRONTEND: FALLBACK ARRAY FOUND - USING NESTED RESULTS", fallbackArray.length);
+              rawResults = fallbackArray;
+            } else {
+              console.warn(">>> FRONTEND: NO ARRAY RESULTS FOUND IN RESPONSE");
+            }
+          }
+
           const paginationMeta = data.meta ?? (data.data as any)?.meta ?? null;
 
           if (data.status === "success") {
@@ -377,11 +407,11 @@ export const useSearchStore = create<SearchState & SearchActions>()(
             });
 
             // Use set() to update state - this triggers React re-renders automatically
-              set({
-                results: normalizedResults,
-                meta: paginationMeta
-                  ? {
-                      ...paginationMeta,
+            set({
+              results: normalizedResults,
+              meta: paginationMeta
+                ? {
+                    ...paginationMeta,
                   }
                 : {
                     current_page: page,
@@ -390,7 +420,7 @@ export const useSearchStore = create<SearchState & SearchActions>()(
                     total: normalizedResults.length,
                   },
               error: null,
-              });
+            });
 
               console.log(">>> FRONTEND: STATE UPDATED via set():", {
                 resultsCount: normalizedResults.length,
