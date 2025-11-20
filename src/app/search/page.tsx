@@ -99,13 +99,14 @@ export default function SearchPage() {
     // Detect when loading changes from true to false (search just completed)
     if (prevLoadingRef.current === true && loading === false) {
       // Search has just completed - use reactive values from hook
+      const totalResults = meta?.total ?? results.length;
+
       if (error) {
         setFeedback(`❌ خطأ: ${error}`);
-      } else if (results.length === 0) {
-        setFeedback("⚠️ لم يتم العثور على نتائج مطابقة لمعايير البحث. جرب معايير مختلفة أو قم بإزالة بعض الفلاتر الاختيارية.");
+      } else if (totalResults > 0) {
+        setFeedback(`✅ تم العثور على ${totalResults} ${totalResults === 1 ? 'نتيجة' : 'نتائج'}`);
       } else {
-        const total = meta?.total || results.length;
-        setFeedback(`✅ تم العثور على ${total} ${total === 1 ? 'نتيجة' : 'نتائج'}`);
+        setFeedback("⚠️ لم يتم العثور على نتائج مطابقة لمعايير البحث. جرب معايير مختلفة أو قم بإزالة بعض الفلاتر الاختيارية.");
       }
     }
     prevLoadingRef.current = loading;

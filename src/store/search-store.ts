@@ -370,13 +370,10 @@ export const useSearchStore = create<SearchState & SearchActions>()(
             }
             
             // Use set() to update state - this triggers React re-renders automatically
-            // Use validResults.length for total to match what we actually display
             set({
               results: validResults,
               meta: data.meta ? {
                 ...data.meta,
-                // Use actual valid results count, not backend's total
-                total: validResults.length,
               } : {
                 current_page: page,
                 last_page: 1,
@@ -388,12 +385,12 @@ export const useSearchStore = create<SearchState & SearchActions>()(
                 : null,
             });
             
-            console.log(">>> FRONTEND: STATE UPDATED via set():", {
-              resultsCount: validResults.length,
-              originalDataCount: data.data.length,
-              originalMetaTotal: data.meta?.total,
-              finalMetaTotal: validResults.length,
-            });
+              console.log(">>> FRONTEND: STATE UPDATED via set():", {
+                resultsCount: validResults.length,
+                originalDataCount: data.data.length,
+                originalMetaTotal: data.meta?.total,
+                finalMetaTotal: data.meta?.total ?? validResults.length,
+              });
           } else {
             console.error(">>> FRONTEND: INVALID RESPONSE STRUCTURE:", {
               hasData: !!data,
