@@ -318,13 +318,28 @@ export const useSearchStore = create<SearchState & SearchActions>()(
             hasMeta: !!data.meta,
           });
 
-          if (data.status === "success" && Array.isArray(data.data)) {
-            console.log(">>> FRONTEND: SETTING RESULTS:", data.data.length, "items");
-            console.log(">>> FRONTEND: FIRST RESULT:", JSON.stringify(data.data[0], null, 2));
+          let rawResults: any[] = [];
+          if (Array.isArray(data.data)) {
+            rawResults = data.data;
+          } else if (Array.isArray((data.data as any)?.data)) {
+            rawResults = (data.data as any).data;
+          } else if (Array.isArray((data.data as any)?.users)) {
+            rawResults = (data.data as any).users;
+          } else if (Array.isArray((data as any).results)) {
+            rawResults = (data as any).results;
+          }
+
+          const paginationMeta = data.meta ?? (data.data as any)?.meta ?? null;
+
+          if (data.status === "success") {
+            console.log(">>> FRONTEND: SETTING RESULTS:", rawResults.length, "items");
+            if (rawResults.length > 0) {
+              console.log(">>> FRONTEND: FIRST RESULT:", JSON.stringify(rawResults[0], null, 2));
+            }
 
             // Normalize results instead of filtering them out entirely to avoid
             // "results = 0" when the backend reports matches in meta.total.
-            const normalizedResults: SearchResult[] = data.data.map((item: any, index: number) => {
+            const normalizedResults: SearchResult[] = rawResults.map((item: any, index: number) => {
               const user = item?.user ?? item?.user_info ?? {};
               const profile = item?.profile ?? item?.profile_data ?? item?.user_profile ?? {};
 
@@ -362,11 +377,11 @@ export const useSearchStore = create<SearchState & SearchActions>()(
             });
 
             // Use set() to update state - this triggers React re-renders automatically
-            set({
-              results: normalizedResults,
-              meta: data.meta
-                ? {
-                    ...data.meta,
+              set({
+                results: normalizedResults,
+                meta: paginationMeta
+                  ? {
+                      ...paginationMeta,
                   }
                 : {
                     current_page: page,
@@ -375,14 +390,14 @@ export const useSearchStore = create<SearchState & SearchActions>()(
                     total: normalizedResults.length,
                   },
               error: null,
-            });
+              });
 
-            console.log(">>> FRONTEND: STATE UPDATED via set():", {
-              resultsCount: normalizedResults.length,
-              originalDataCount: data.data.length,
-              originalMetaTotal: data.meta?.total,
-              finalMetaTotal: data.meta?.total ?? normalizedResults.length,
-            });
+              console.log(">>> FRONTEND: STATE UPDATED via set():", {
+                resultsCount: normalizedResults.length,
+                originalDataCount: rawResults.length,
+                originalMetaTotal: paginationMeta?.total,
+                finalMetaTotal: paginationMeta?.total ?? normalizedResults.length,
+              });
           } else {
             console.error(">>> FRONTEND: INVALID RESPONSE STRUCTURE:", {
               hasData: !!data,
