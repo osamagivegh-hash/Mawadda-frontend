@@ -359,6 +359,21 @@ export const useSearchStore = create<SearchState & SearchActions>()(
             }
           }
 
+          // Some backend responses return a single object (e.g., when one match is found)
+          // instead of wrapping it in an array. If meta.total indicates there is one
+          // result but no array was found, treat the object as a single-item array so
+          // the frontend can render the member details.
+          if (
+            rawResults.length === 0 &&
+            data?.meta?.total === 1 &&
+            data?.data &&
+            typeof data.data === "object" &&
+            !Array.isArray(data.data)
+          ) {
+            console.log(">>> FRONTEND: SINGLE OBJECT RESULT DETECTED - NORMALIZING TO ARRAY");
+            rawResults = [data.data];
+          }
+
           const paginationMeta = data.meta ?? (data.data as any)?.meta ?? null;
 
           if (data.status === "success") {
