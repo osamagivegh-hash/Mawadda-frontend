@@ -385,7 +385,10 @@ export const useSearchStore = create<SearchState & SearchActions>()(
 
           const paginationMeta = data.meta ?? (data.data as any)?.meta ?? null;
 
-          if (data.status === "success") {
+          const isSuccessStatus = String(data.status ?? "").toLowerCase() === "success";
+          const hasResults = rawResults.length > 0 || (paginationMeta?.total ?? 0) > 0;
+
+          if (isSuccessStatus || hasResults) {
             console.log(">>> FRONTEND: SETTING RESULTS:", rawResults.length, "items");
             if (rawResults.length > 0) {
               console.log(">>> FRONTEND: FIRST RESULT:", JSON.stringify(rawResults[0], null, 2));
@@ -446,12 +449,12 @@ export const useSearchStore = create<SearchState & SearchActions>()(
               error: null,
             });
 
-              console.log(">>> FRONTEND: STATE UPDATED via set():", {
-                resultsCount: normalizedResults.length,
-                originalDataCount: rawResults.length,
-                originalMetaTotal: paginationMeta?.total,
-                finalMetaTotal: paginationMeta?.total ?? normalizedResults.length,
-              });
+            console.log(">>> FRONTEND: STATE UPDATED via set():", {
+              resultsCount: normalizedResults.length,
+              originalDataCount: rawResults.length,
+              originalMetaTotal: paginationMeta?.total,
+              finalMetaTotal: paginationMeta?.total ?? normalizedResults.length,
+            });
           } else {
             console.error(">>> FRONTEND: INVALID RESPONSE STRUCTURE:", {
               hasData: !!data,
