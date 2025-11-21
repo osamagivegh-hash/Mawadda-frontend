@@ -161,9 +161,18 @@ export const useSearchStore = create<SearchState & SearchActions>()(
         const minAgeValue = filters.minAge ? parseInt(filters.minAge) : undefined;
         const maxAgeValue = filters.maxAge ? parseInt(filters.maxAge) : undefined;
 
-        // Validate required fields
-        if (!minAgeValue && !maxAgeValue) {
-          set({ error: "يجب إدخال العمر (من أو إلى) للبحث (مطلوب)" });
+        // Validate required fields: allow searching by رقم العضوية أو الاسم حتى بدون العمر
+        const hasAgeRange = Boolean(minAgeValue || maxAgeValue);
+        const hasDirectIdentifier = Boolean(
+          (filters.memberId && filters.memberId.trim().length > 0) ||
+          (filters.keyword && filters.keyword.trim().length > 0),
+        );
+
+        if (!hasAgeRange && !hasDirectIdentifier) {
+          set({
+            error:
+              "يجب إدخال العمر (من أو إلى) أو البحث برقم/اسم العضو لإجراء البحث",
+          });
           return;
         }
 
