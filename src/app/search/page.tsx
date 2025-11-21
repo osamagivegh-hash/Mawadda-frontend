@@ -237,13 +237,19 @@ export default function SearchPage() {
     if (!profile || !profile.gender) {
       return false;
     }
-    
+
     const minAgeValue = filters.minAge ? parseInt(filters.minAge) : undefined;
     const maxAgeValue = filters.maxAge ? parseInt(filters.maxAge) : undefined;
-    const hasAge = (minAgeValue !== undefined && !isNaN(minAgeValue)) || 
-                   (maxAgeValue !== undefined && !isNaN(maxAgeValue));
-    
-    return hasAge && !loading && !profileLoading;
+    const hasAge =
+      (minAgeValue !== undefined && !isNaN(minAgeValue)) ||
+      (maxAgeValue !== undefined && !isNaN(maxAgeValue));
+
+    const hasIdentifier = Boolean(
+      (filters.memberId && filters.memberId.trim().length > 0) ||
+      (filters.keyword && filters.keyword.trim().length > 0),
+    );
+
+    return (hasAge || hasIdentifier) && !loading && !profileLoading;
   };
 
   const updateFilter = (name: keyof SearchFilters, value: string) => {
@@ -566,7 +572,7 @@ export default function SearchPage() {
           <div className="mt-6">
             {!isSearchButtonEnabled() && !loading && (
               <p className="mb-2 text-sm text-amber-600 text-center">
-                ⚠️ يجب إدخال العمر للبحث (حقل مطلوب)
+                ⚠️ أدخل العمر أو رقم/اسم العضو للبحث
               </p>
             )}
             <button
