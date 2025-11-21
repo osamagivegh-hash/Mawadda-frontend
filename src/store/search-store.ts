@@ -27,6 +27,7 @@ export type SearchFilters = {
   memberId?: string;
   page?: string;
   per_page?: string;
+  limit?: string;
 };
 
 export type SearchResult = {
@@ -113,6 +114,9 @@ const initialFilters: SearchFilters = {
   hasPhoto: "",
   keyword: "",
   memberId: "",
+  // Use a generous default page size to avoid unintentionally restricting results
+  per_page: "50",
+  limit: "50",
 };
 
 export const useSearchStore = create<SearchState & SearchActions>()(
@@ -252,9 +256,20 @@ export const useSearchStore = create<SearchState & SearchActions>()(
             params.append("hasPhoto", "true");
           }
 
-          // Pagination
+          // Pagination - always send an explicit limit so the backend doesn't default to 1
+          const limit = (() => {
+            const rawLimit = filters.limit || filters.per_page;
+            const parsed = rawLimit ? parseInt(rawLimit, 10) : NaN;
+            if (Number.isFinite(parsed) && parsed > 0) {
+              return Math.min(parsed, 100); // protect backend from extreme values
+            }
+            return 50;
+          })();
+
           params.append("page", String(page));
-          params.append("per_page", String(filters.per_page || 20));
+          // Some backends expect `limit`, others expect `per_page` - send both
+          params.append("limit", String(limit));
+          params.append("per_page", String(limit));
 
           const url = `${API_BASE}/search?${params.toString()}`;
           console.log("SEARCH REQUEST:", Object.fromEntries(params.entries()));
@@ -451,7 +466,7 @@ export const useSearchStore = create<SearchState & SearchActions>()(
                 : {
                     current_page: page,
                     last_page: 1,
-                    per_page: filters.per_page ? parseInt(filters.per_page) : 20,
+                    per_page: limit,
                     total: normalizedResults.length,
                   },
               error: null,
