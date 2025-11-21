@@ -397,8 +397,16 @@ export const useSearchStore = create<SearchState & SearchActions>()(
             // Normalize results instead of filtering them out entirely to avoid
             // "results = 0" when the backend reports matches in meta.total.
             const normalizedResults: SearchResult[] = rawResults.map((item: any, index: number) => {
-              const user = item?.user ?? item?.user_info ?? {};
-              const profile = item?.profile ?? item?.profile_data ?? item?.user_profile ?? {};
+              // Some API responses wrap the actual user/profile under a nested `data` key
+              // (e.g., { data: { user: {...}, profile: {...} } }). To avoid rendering empty
+              // details, look inside the nested object when present.
+              const user = item?.user ?? item?.user_info ?? item?.data?.user ?? {};
+              const profile =
+                item?.profile ??
+                item?.profile_data ??
+                item?.user_profile ??
+                item?.data?.profile ??
+                {};
 
               return {
                 user: {
